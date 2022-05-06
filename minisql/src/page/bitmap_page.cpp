@@ -11,7 +11,7 @@ bool BitmapPage<PageSize>::AllocatePage(uint32_t &page_offset) {
 
   uint32_t byte_index = page_offset / 8;
   uint32_t bit_index = page_offset % 8;
-  this->bytes[byte_index] |= (1<<bit_index);
+  this->bytes[byte_index] |= (1<<bit_index) ;
   
   for(uint32_t i = 0;i < MAX_CHARS;i++)
   {
