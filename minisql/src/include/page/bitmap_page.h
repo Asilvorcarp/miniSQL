@@ -39,7 +39,7 @@ private:
    * @return true if a bit is 0, false if 1.
    */
   bool IsPageFreeLow(uint32_t byte_index, uint8_t bit_index) const;
-
+ 
   /** Note: need to update if modify page structure. */
   static constexpr size_t MAX_CHARS = PageSize - 2 * sizeof(uint32_t);
 
