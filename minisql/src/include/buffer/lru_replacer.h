@@ -4,6 +4,7 @@
 #include <list>
 #include <mutex>
 #include <unordered_set>
+#include <unordered_map>
 #include <vector>
 
 #include "buffer/replacer.h"
@@ -36,6 +37,8 @@ public:
   size_t Size() override;
 
 private:
+  list<frame_id_t> lru_list;
+  unordered_map<frame_id_t,list<frame_id_t>::iterator> hash_map;
   // add your own private member variables here
 };
 
