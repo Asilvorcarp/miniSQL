@@ -20,6 +20,7 @@ DiskManager::DiskManager(const std::string &db_file) : file_name_(db_file) {
       throw std::exception();
     }
   }
+  
   ReadPhysicalPage(META_PAGE_ID, meta_data_);
 }
 
@@ -42,20 +43,92 @@ void DiskManager::WritePage(page_id_t logical_page_id, const char *page_data) {
 }
 
 page_id_t DiskManager::AllocatePage() {
-  ASSERT(false, "Not implemented yet.");
-  return INVALID_PAGE_ID;
+  //元数据页
+  DiskFileMetaPage* meta_page_information = reinterpret_cast<DiskFileMetaPage*>(this->meta_data_); 
+  page_id_t result_logic_page = 0;    //返回的page逻辑页号
+  uint32_t temp_offest_in_exetent = 0;
+  char bit_map[PAGE_SIZE];
+  int is_find = 0;
+  
+  for(uint32_t i = 0;i<meta_page_information->GetExtentNums();i++)
+  {
+    if(meta_page_information->GetExtentUsedPage(i)<BITMAP_SIZE)
+    {
+      //算物理页号（位图页）
+      uint32_t bit_map_physical_page = i*(this->BITMAP_SIZE + 1) + 1;
+      //读到自己定义的字符串里，强制类型转换成bitmap，调用其函数
+      this->ReadPhysicalPage(bit_map_physical_page,bit_map);
+      BitmapPage<PAGE_SIZE>* Bitmap_Page_information = reinterpret_cast<BitmapPage<PAGE_SIZE>*>(bit_map); 
+      Bitmap_Page_information->AllocatePage(temp_offest_in_exetent);
+      result_logic_page = i*this->BITMAP_SIZE + temp_offest_in_exetent;
+      //该分区所用page数++
+      meta_page_information->extent_used_page_[i]++;
+      //所用的总page数++
+      meta_page_information->num_allocated_pages_++;
+      is_find = 1;
+      this->WritePhysicalPage(bit_map_physical_page,bit_map);
+      break;
+    }
+  }
+   //如果前面已用的分区没有空页，开一个新的页。
+  if(is_find==0)
+  {
+    uint32_t bit_map_physical_page = meta_page_information->num_extents_*(this->BITMAP_SIZE + 1) + 1;
+    this->ReadPhysicalPage(bit_map_physical_page,bit_map);
+    BitmapPage<PAGE_SIZE>* Bitmap_Page_information = reinterpret_cast<BitmapPage<PAGE_SIZE>*>(bit_map); 
+    Bitmap_Page_information->AllocatePage(temp_offest_in_exetent);
+    result_logic_page = meta_page_information->num_extents_*this->BITMAP_SIZE + temp_offest_in_exetent;
+    
+    //该分区所用page数++
+    meta_page_information->extent_used_page_[meta_page_information->num_extents_]++;
+    //所用的总page数++
+    meta_page_information->num_allocated_pages_++;
+    //分区数++
+    meta_page_information->num_extents_ ++;
+    this->WritePhysicalPage(bit_map_physical_page,bit_map);
+  }
+  return result_logic_page;
 }
 
 void DiskManager::DeAllocatePage(page_id_t logical_page_id) {
-  ASSERT(false, "Not implemented yet.");
+  //元数据页
+  DiskFileMetaPage* meta_page_information = reinterpret_cast<DiskFileMetaPage*>(this->meta_data_); 
+  uint32_t temp_offest_in_exetent = logical_page_id % BITMAP_SIZE;
+  uint32_t temp_exetent = logical_page_id / BITMAP_SIZE;
+
+  char bit_map[PAGE_SIZE];
+  //算物理页号（位图页）
+  uint32_t bit_map_physical_page = temp_exetent*(this->BITMAP_SIZE + 1) + 1;
+  //读到自己定义的字符串里，强制类型转换成bitmap，调用其函数
+  this->ReadPhysicalPage(bit_map_physical_page,bit_map);
+  BitmapPage<PAGE_SIZE>* Bitmap_Page_information = reinterpret_cast<BitmapPage<PAGE_SIZE>*>(bit_map); 
+  Bitmap_Page_information->DeAllocatePage(temp_offest_in_exetent);
+  //所用的总page数--
+  meta_page_information->num_allocated_pages_--;
+  //该分区所用page数--
+  meta_page_information->extent_used_page_[temp_exetent]--;
+  this->WritePhysicalPage(bit_map_physical_page,bit_map);
 }
 
 bool DiskManager::IsPageFree(page_id_t logical_page_id) {
-  return false;
+  //元数据页
+  // DiskFileMetaPage* meta_page_information = reinterpret_cast<DiskFileMetaPage*>(this->meta_data_); 
+  uint32_t temp_offest_in_exetent = logical_page_id % BITMAP_SIZE;
+  uint32_t temp_exetent = logical_page_id / BITMAP_SIZE;
+
+  char bit_map[PAGE_SIZE];
+  //算物理页号（位图页）
+  uint32_t bit_map_physical_page = temp_exetent*(this->BITMAP_SIZE + 1) + 1;
+  //读到自己定义的字符串里，强制类型转换成bitmap，调用其函数
+  this->ReadPhysicalPage(bit_map_physical_page,bit_map);
+  BitmapPage<PAGE_SIZE>* Bitmap_Page_information = reinterpret_cast<BitmapPage<PAGE_SIZE>*>(bit_map);
+  return Bitmap_Page_information->IsPageFree(temp_offest_in_exetent);
 }
 
 page_id_t DiskManager::MapPageId(page_id_t logical_page_id) {
-  return 0;
+  uint32_t fixed_page = logical_page_id/BITMAP_SIZE + 1; //已用位图页数量
+  page_id_t result = fixed_page + logical_page_id + 1;//位图页 + 数据页 + 元数据页
+  return result;
 }
 
 int DiskManager::GetFileSize(const std::string &file_name) {
