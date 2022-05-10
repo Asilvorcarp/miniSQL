@@ -37,7 +37,7 @@ Field null_fields[] = {
         Field(TypeId::kTypeInt), Field(TypeId::kTypeFloat), Field(TypeId::kTypeChar)
 };
 
-TEST(TupleTest, FieldSerializeDeserializeTest) {
+TEST(TupleTest, DISABLED_FieldSerializeDeserializeTest) {
   char buffer[PAGE_SIZE];
   memset(buffer, 0, sizeof(buffer));
   // Serialize phase
@@ -87,7 +87,7 @@ TEST(TupleTest, FieldSerializeDeserializeTest) {
   }
 }
 
-TEST(TupleTest, RowTest) {
+TEST(TupleTest, DISABLED_RowTest) {
   SimpleMemHeap heap;
   TablePage table_page;
   // create schema
@@ -117,4 +117,103 @@ TEST(TupleTest, RowTest) {
   }
   ASSERT_TRUE(table_page.MarkDelete(row.GetRowId(), nullptr, nullptr, nullptr));
   table_page.ApplyDelete(row.GetRowId(), nullptr, nullptr);
+}
+
+
+//add some test
+TEST(TupleTest, DISABLED_ColTest) {
+  SimpleMemHeap heap;
+  TablePage table_page;
+  char *space = new char[1000];
+  char *buf = space;
+  // create schema
+  std::vector<Column *> columns = {ALLOC_COLUMN(heap)("id", TypeId::kTypeInt, 0, false, false),
+                                   ALLOC_COLUMN(heap)("name", TypeId::kTypeChar, 64, 1, true, false),
+                                   ALLOC_COLUMN(heap)("account", TypeId::kTypeFloat, 2, true, false)};
+  std::vector<Field> fields = {Field(TypeId::kTypeInt, 188),
+                               Field(TypeId::kTypeChar, const_cast<char *>("minisql"), strlen("minisql"), false),
+                               Field(TypeId::kTypeFloat, 19.99f)};
+  auto schema = std::make_shared<Schema>(columns);
+
+  Column col0(columns[0]->GetName(), columns[0]->GetType(), columns[0]->GetTableInd(), columns[0]->IsNullable(), false);
+  Column col1(columns[1]->GetName(), columns[1]->GetType(), columns[1]->GetLength(), columns[1]->GetTableInd(),
+              columns[1]->IsNullable(), false);
+  Column col2(columns[2]->GetName(), columns[2]->GetType(), columns[2]->GetTableInd(), columns[2]->IsNullable(), false);
+
+  Column *test_col = nullptr;
+
+  col0.SerializeTo(buf);
+  buf += col0.GetSerializedSize();
+  col1.SerializeTo(buf);
+  buf += col1.GetSerializedSize();
+  col2.SerializeTo(buf);
+  buf += col2.GetSerializedSize();
+
+  buf = space;
+  Column::DeserializeFrom(buf, test_col, &heap);
+  buf += test_col->GetSerializedSize();
+  ASSERT_TRUE(test_col->GetName() == col0.GetName());
+  ASSERT_TRUE(test_col->GetType() == col0.GetType());
+
+  Column::DeserializeFrom(buf, test_col, &heap);
+  buf += test_col->GetSerializedSize();
+  ASSERT_TRUE(test_col->GetName() == col1.GetName());
+  ASSERT_TRUE(test_col->GetType() == col1.GetType());
+
+  Column::DeserializeFrom(buf, test_col, &heap);
+  buf += test_col->GetSerializedSize();
+  ASSERT_TRUE(test_col->GetName() == col2.GetName());
+  ASSERT_TRUE(test_col->GetType() == col2.GetType());
+
+  delete[] space;
+}
+TEST(TupleTest, SchemaTest) {
+  SimpleMemHeap heap;
+  TablePage table_page;
+  char *space = new char[1000];
+  char *buf = space;
+  // create schema
+  std::vector<Column *> columns = {ALLOC_COLUMN(heap)("id", TypeId::kTypeInt, 0, false, false),
+                                   ALLOC_COLUMN(heap)("name", TypeId::kTypeChar, 64, 1, true, false),
+                                   ALLOC_COLUMN(heap)("account", TypeId::kTypeFloat, 2, true, false)};
+  std::vector<Field> fields = {Field(TypeId::kTypeInt, 188),
+                               Field(TypeId::kTypeChar, const_cast<char *>("minisql"), strlen("minisql"), false),
+                               Field(TypeId::kTypeFloat, 19.99f)};
+  auto schema = std::make_shared<Schema>(columns);
+
+  Column col0(columns[0]->GetName(), columns[0]->GetType(), columns[0]->GetTableInd(), columns[0]->IsNullable(), false);
+  Column col1(columns[1]->GetName(), columns[1]->GetType(), columns[1]->GetLength(), columns[1]->GetTableInd(),
+              columns[1]->IsNullable(), false);
+  Column col2(columns[2]->GetName(), columns[2]->GetType(), columns[2]->GetTableInd(), columns[2]->IsNullable(), false);
+
+  
+  Schema *test_Schema = nullptr;
+  
+  Schema schema1(columns);
+  schema1.SerializeTo(buf);
+  buf += schema1.GetSerializedSize();
+
+  buf = space;
+
+  Schema::DeserializeFrom(buf, test_Schema, &heap);
+  buf += test_Schema->GetSerializedSize();
+  std::vector<Column *> columns_ = test_Schema->GetColumns();
+  ASSERT_TRUE(columns_[0]->GetName() == col0.GetName());
+  ASSERT_TRUE(columns_[0]->GetName() == col0.GetName());
+ 
+  Schema::DeserializeFrom(buf, test_Schema, &heap);
+  buf += test_Schema->GetSerializedSize();
+
+  ASSERT_TRUE(columns_[1]->GetName() == col1.GetName());
+  ASSERT_TRUE(columns_[1]->GetName() == col1.GetName());
+
+  Schema::DeserializeFrom(buf, test_Schema, &heap);
+  buf += test_Schema->GetSerializedSize();
+
+  ASSERT_TRUE(columns_[2]->GetName() == col2.GetName());
+  ASSERT_TRUE(columns_[2]->GetName() == col2.GetName());
+
+  
+
+  delete[] space;
 }
