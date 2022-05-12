@@ -45,17 +45,19 @@ Page *BufferPoolManager::FetchPage(page_id_t page_id) {
       LOG(ERROR) << "No free page available";
       return nullptr;
     }
-    auto page_id = page_table_[frame_id];
-    FlushPage(page_id);
+    // auto page_id = page_table_[frame_id]; //todo
+    page_id_t R = page_table_.find(frame_id)->first;
+    // R is dirty, write it back to the disk.
+    if (pages_[frame_id].IsDirty()) 
+      FlushPage(R);
     page_table_.erase(frame_id);
   }
+
   page_table_[page_id] = frame_id;
   replacer_->Pin(frame_id);
   Page *page = &pages_[frame_id];
-  page->Read(disk_manager_, page_id);
+  disk_manager_->ReadPage(page_id, page->GetData());
   return page;
-
-  return nullptr; // todo remove
 }
 
 Page *BufferPoolManager::NewPage(page_id_t &page_id) {
@@ -64,6 +66,50 @@ Page *BufferPoolManager::NewPage(page_id_t &page_id) {
   // 2.   Pick a victim page P from either the free list or the replacer. Always pick from the free list first.
   // 3.   Update P's metadata, zero out memory and add P to the page table.
   // 4.   Set the page ID output parameter. Return a pointer to P.
+
+  // 0.   Make sure you call AllocatePage!
+  page_id = AllocatePage();
+  // 1.   If all the pages in the buffer pool are pinned, return nullptr.
+  bool flag = false;
+  for (size_t i = 0; i < pool_size_; i++)
+  {
+    if (pages_[i].GetPinCount() == 0)
+    {
+      flag = true;
+      break;
+    }
+  }
+  if (flag == false)
+    return nullptr;
+  // 2.   Pick a victim page P from either the free list or the replacer. Always pick from the free list first.
+  frame_id_t frame_id;
+  if (!free_list_.empty()) {
+    frame_id = free_list_.front();
+    free_list_.pop_front();
+  } else {
+    if (!replacer_->Victim(&frame_id)) {
+      LOG(ERROR) << "No free page available";
+      return nullptr;
+    }
+    // auto page_id = page_table_[frame_id]; //todo
+    page_id_t R = page_table_.find(frame_id)->first;
+    // R is dirty, write it back to the disk. //todo
+    if (pages_[frame_id].IsDirty()) 
+      FlushPage(R);
+    page_table_.erase(R);
+  }
+  // 3.   Update P's metadata, zero out memory and add P to the page table.
+  page_table_[page_id] = frame_id;
+  Page P = pages_[frame_id];
+  // Update P's metadata
+  P.ResetMemory();
+  page_table_.insert(std::make_pair(page_id, frame_id));  
+  // 4.   Set the page ID output parameter. Return a pointer to P.
+  *page_id = page_id;
+
+  return &P;
+
+
   return nullptr;
 }
 
