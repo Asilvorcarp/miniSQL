@@ -27,7 +27,35 @@ Page *BufferPoolManager::FetchPage(page_id_t page_id) {
   // 2.     If R is dirty, write it back to the disk.
   // 3.     Delete R from the page table and insert P.
   // 4.     Update P's metadata, read in the page content from disk, and then return a pointer to P.
-  return nullptr;
+
+  for (auto page: page_table_) {
+    if (page.first == page_id) {
+      replacer_->Pin(page.second);
+      return &pages_[page.second];
+    }
+  }
+  // P does not exist, find a replacement page (R) from either the free list or the replacer.
+  // Note that pages are always found from the free list first.
+  frame_id_t frame_id;
+  if (!free_list_.empty()) {
+    frame_id = free_list_.front();
+    free_list_.pop_front();
+  } else {
+    if (!replacer_->Victim(&frame_id)) {
+      LOG(ERROR) << "No free page available";
+      return nullptr;
+    }
+    auto page_id = page_table_[frame_id];
+    FlushPage(page_id);
+    page_table_.erase(frame_id);
+  }
+  page_table_[page_id] = frame_id;
+  replacer_->Pin(frame_id);
+  Page *page = &pages_[frame_id];
+  page->Read(disk_manager_, page_id);
+  return page;
+
+  return nullptr; // todo remove
 }
 
 Page *BufferPoolManager::NewPage(page_id_t &page_id) {
