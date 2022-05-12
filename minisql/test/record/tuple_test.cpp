@@ -87,7 +87,7 @@ TEST(TupleTest, DISABLED_FieldSerializeDeserializeTest) {
   }
 }
 
-TEST(TupleTest, DISABLED_RowTest) {
+TEST(TupleTest, RowTest) {
   SimpleMemHeap heap;
   TablePage table_page;
   // create schema
@@ -167,7 +167,7 @@ TEST(TupleTest, DISABLED_ColTest) {
 
   delete[] space;
 }
-TEST(TupleTest, SchemaTest) {
+TEST(TupleTest, DISABLED_SchemaTest) {
   SimpleMemHeap heap;
   TablePage table_page;
   char *space = new char[1000];
