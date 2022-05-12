@@ -84,6 +84,10 @@ public:
     return is_null_;
   }
 
+  inline TypeId get_type_id() const {
+    return this->type_id_;
+  }
+
   inline uint32_t GetLength() const {
     return Type::GetInstance(type_id_)->GetLength(*this);
   }
