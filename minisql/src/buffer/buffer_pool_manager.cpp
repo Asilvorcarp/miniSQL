@@ -28,36 +28,47 @@ Page *BufferPoolManager::FetchPage(page_id_t page_id) {
   // 3.     Delete R from the page table and insert P.
   // 4.     Update P's metadata, read in the page content from disk, and then return a pointer to P.
 
-  for (auto page: page_table_) {
-    if (page.first == page_id) {
-      replacer_->Pin(page.second);
-      return &pages_[page.second];
-    }
+  // 1.     Search the page table for the requested page (P).
+  try
+  { // P exist
+    frame_id_t P_frame_id = page_table_.at(page_id); // may raise err out_of_range
+    replacer_->Pin(P_frame_id);
+    return &pages_[P_frame_id];
   }
-  // P does not exist, find a replacement page (R) from either the free list or the replacer.
-  // Note that pages are always found from the free list first.
-  frame_id_t frame_id;
-  if (!free_list_.empty()) {
-    frame_id = free_list_.front();
-    free_list_.pop_front();
-  } else {
-    if (!replacer_->Victim(&frame_id)) {
-      LOG(ERROR) << "No free page available";
-      return nullptr;
-    }
-    // auto page_id = page_table_[frame_id]; //todo
-    page_id_t R = page_table_.find(frame_id)->first;
-    // R is dirty, write it back to the disk.
-    if (pages_[frame_id].IsDirty()) 
-      FlushPage(R);
-    page_table_.erase(frame_id);
-  }
+  catch(const std::out_of_range& e)
+  { // P not exist
 
-  page_table_[page_id] = frame_id;
-  replacer_->Pin(frame_id);
-  Page *page = &pages_[frame_id];
-  disk_manager_->ReadPage(page_id, page->GetData());
-  return page;
+    // 1.2    If P does not exist, find a replacement page (R) from either the free list or the replacer.
+    frame_id_t frame_id; // the Page R's index in the BufferPool's pages_ array
+    if (!free_list_.empty()) {
+      frame_id = free_list_.front();
+      free_list_.pop_front();
+    } else {
+      if (!replacer_->Victim(&frame_id)) {
+        LOG(ERROR) << "No free page available";
+        return nullptr;
+      }
+    }
+
+    // 2.     If R is dirty, write it back to the disk.
+    page_id_t R_page_id = page_table_[frame_id];
+    if (pages_[frame_id].IsDirty()) 
+      FlushPage(R_page_id);
+
+    // 3.     Delete R from the page table and insert P.
+    page_table_.erase(frame_id);
+    page_table_[frame_id] = page_id;
+
+    // 4.     Update P's metadata, read in the page content from disk, and then return a pointer to P.
+    Page *P = &pages_[frame_id];
+    // update metadata
+    P->page_id_ = page_id;
+    P->pin_count_ = 0;
+    P->is_dirty_ = false;
+    // read in page content
+    disk_manager_->ReadPage(page_id, P->GetData());
+    return P;
+  }
 }
 
 Page *BufferPoolManager::NewPage(page_id_t &page_id) {
