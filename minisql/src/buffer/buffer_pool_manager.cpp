@@ -45,7 +45,7 @@ Page *BufferPoolManager::FetchPage(page_id_t page_id) {
       free_list_.pop_front();
     } else {
       if (!replacer_->Victim(&frame_id)) {
-        LOG(ERROR) << "No free page available";
+        // LOG(ERROR) << "No free page available"; // for debug
         return nullptr;
       }
     }
@@ -71,6 +71,7 @@ Page *BufferPoolManager::FetchPage(page_id_t page_id) {
   }
 }
 
+// return nullptr if failed
 Page *BufferPoolManager::NewPage(page_id_t &page_id) {
   // 0.   Make sure you call AllocatePage!
   // 1.   If all the pages in the buffer pool are pinned, return nullptr.
@@ -101,7 +102,7 @@ Page *BufferPoolManager::NewPage(page_id_t &page_id) {
     free_list_.pop_front();
   } else {
     if (!replacer_->Victim(&frame_id)) {
-      LOG(ERROR) << "No free page available";
+      // LOG(ERROR) << "No free page available"; // for debug
       return nullptr;
     }
   }
@@ -128,15 +129,58 @@ bool BufferPoolManager::DeletePage(page_id_t page_id) {
   // 1.   If P does not exist, return true.
   // 2.   If P exists, but has a non-zero pin-count, return false. Someone is using the page.
   // 3.   Otherwise, P can be deleted. Remove P from the page table, reset its metadata and return it to the free list.
-  return false;
+  
+  // 0.   Make sure you call DeallocatePage!
+  DeallocatePage(page_id);
+
+  // 1.   Search the page table for the requested page (P).
+  frame_id_t P_frame_id;
+  try
+  { 
+    P_frame_id = page_table_.at(page_id); // may raise err out_of_range
+  }
+  catch(const std::out_of_range& e)
+  { // P not exist, return true.
+    return true;
+  }
+  
+  // P exist 
+  // 2.   If P exists, but has a non-zero pin-count, return false. Someone is using the page.
+  if (pages_[P_frame_id].GetPinCount()) // non-zero
+    return false;
+
+  // 3.   Otherwise, P can be deleted. Remove P from the page table, 
+  //      reset its metadata and return it to the free list.
+  // Remove P from the page table
+  page_table_.erase(page_id);
+  // Reset P's metadata
+  Page *P = &pages_[P_frame_id];
+  P->page_id_ = page_id;
+  // P->pin_count_ = 0; // already zero
+  P->is_dirty_ = false;
+  // Add P to the free list
+  free_list_.push_back(P_frame_id);
+  return true;
 }
 
 bool BufferPoolManager::UnpinPage(page_id_t page_id, bool is_dirty) {
-  return false;
+  frame_id_t frame_id = page_table_[page_id];
+  pages_[frame_id].pin_count_--;
+  replacer_->Unpin(frame_id);
+  if (is_dirty)
+    pages_[frame_id].is_dirty_ = true;
+  return true;
+
+  // return false; // impossible for now
 }
 
 bool BufferPoolManager::FlushPage(page_id_t page_id) {
-  return false;
+  frame_id_t frame_id = page_table_[page_id];
+  disk_manager_->WritePage(page_id, pages_[frame_id].GetData());
+  pages_[frame_id].is_dirty_ = false; // reset dirty bit
+  return true;
+
+  // return false; // impossible for now
 }
 
 page_id_t BufferPoolManager::AllocatePage() {

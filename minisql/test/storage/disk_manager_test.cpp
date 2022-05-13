@@ -3,7 +3,7 @@
 #include "gtest/gtest.h"
 #include "storage/disk_manager.h"
 
-TEST(DiskManagerTest, DISABLED_BitMapPageTest) {
+TEST(DiskManagerTest, BitMapPageTest) {
   const size_t size = 512;
   char buf[size];
   memset(buf, 0, size);
