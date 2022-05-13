@@ -109,7 +109,7 @@ Page *BufferPoolManager::NewPage(page_id_t &page_id) {
 
   // Important: remove the Victim from the page table
   page_table_.erase(pages_[frame_id].GetPageId());
-  
+
   // 3.   Update P's metadata, zero out memory and add P to the page table.
   page_id_t P_page_id = AllocatePage();
   Page *P = &pages_[frame_id];
@@ -134,9 +134,6 @@ bool BufferPoolManager::DeletePage(page_id_t page_id) {
   // 2.   If P exists, but has a non-zero pin-count, return false. Someone is using the page.
   // 3.   Otherwise, P can be deleted. Remove P from the page table, reset its metadata and return it to the free list.
   
-  // 0.   Make sure you call DeallocatePage!
-  
-
   // 1.   Search the page table for the requested page (P).
   frame_id_t P_frame_id;
   try
@@ -193,7 +190,6 @@ bool BufferPoolManager::FlushPage(page_id_t page_id) {
 
 page_id_t BufferPoolManager::AllocatePage() {
   int next_page_id = disk_manager_->AllocatePage();
-  LOG(INFO) << "next_page_id: " << next_page_id; //todo debug
   return next_page_id;
 }
 
