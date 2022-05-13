@@ -2,6 +2,7 @@
 #include <random>
 #include <string>
 
+#include "glog/logging.h"
 #include "buffer/buffer_pool_manager.h"
 #include "gtest/gtest.h"
 
@@ -59,6 +60,7 @@ TEST(BufferPoolManagerTest, BinaryDataTest) {
     EXPECT_EQ(buffer_pool_size + i, page_id_temp);
     bpm->UnpinPage(page_id_temp, false);
   }
+  
   // Scenario: We should be able to fetch the data we wrote a while ago.
   page0 = bpm->FetchPage(0);
   EXPECT_EQ(0, memcmp(page0->GetData(), random_binary_data, PAGE_SIZE));

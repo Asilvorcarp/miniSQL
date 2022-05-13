@@ -2,6 +2,8 @@
 #include "glog/logging.h"
 #include "page/bitmap_page.h"
 
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+
 BufferPoolManager::BufferPoolManager(size_t pool_size, DiskManager *disk_manager)
         : pool_size_(pool_size), disk_manager_(disk_manager) {
   pages_ = new Page[pool_size_];
@@ -32,6 +34,7 @@ Page *BufferPoolManager::FetchPage(page_id_t page_id) {
   try
   { // P exist
     frame_id_t P_frame_id = page_table_.at(page_id); // may raise err out_of_range
+    pages_[P_frame_id].pin_count_++;
     replacer_->Pin(P_frame_id);
     return &pages_[P_frame_id];
   }
@@ -79,9 +82,6 @@ Page *BufferPoolManager::NewPage(page_id_t &page_id) {
   // 3.   Update P's metadata, zero out memory and add P to the page table.
   // 4.   Set the page ID output parameter. Return a pointer to P.
 
-  // 0.   Make sure you call AllocatePage!
-  page_id_t P_page_id = AllocatePage();
-
   // 1.   If all the pages in the buffer pool are pinned, return nullptr.
   bool isAllPinned = true;
   for (uint32_t i = 0; i < pool_size_; i++)
@@ -107,7 +107,11 @@ Page *BufferPoolManager::NewPage(page_id_t &page_id) {
     }
   }
 
+  // Important: remove the Victim from the page table
+  page_table_.erase(pages_[frame_id].GetPageId());
+  
   // 3.   Update P's metadata, zero out memory and add P to the page table.
+  page_id_t P_page_id = AllocatePage();
   Page *P = &pages_[frame_id];
   // Update P's metadata
   P->page_id_ = P_page_id;
@@ -131,7 +135,7 @@ bool BufferPoolManager::DeletePage(page_id_t page_id) {
   // 3.   Otherwise, P can be deleted. Remove P from the page table, reset its metadata and return it to the free list.
   
   // 0.   Make sure you call DeallocatePage!
-  DeallocatePage(page_id);
+  
 
   // 1.   Search the page table for the requested page (P).
   frame_id_t P_frame_id;
@@ -152,6 +156,7 @@ bool BufferPoolManager::DeletePage(page_id_t page_id) {
   // 3.   Otherwise, P can be deleted. Remove P from the page table, 
   //      reset its metadata and return it to the free list.
   // Remove P from the page table
+  DeallocatePage(page_id);
   page_table_.erase(page_id);
   // Reset P's metadata
   Page *P = &pages_[P_frame_id];
@@ -165,8 +170,11 @@ bool BufferPoolManager::DeletePage(page_id_t page_id) {
 
 bool BufferPoolManager::UnpinPage(page_id_t page_id, bool is_dirty) {
   frame_id_t frame_id = page_table_[page_id];
-  pages_[frame_id].pin_count_--;
-  replacer_->Unpin(frame_id);
+  // decrement pin count (lower bound is 0)
+  pages_[frame_id].pin_count_ = MAX(pages_[frame_id].pin_count_-1, 0);
+  // if pin count is 0, call replacer_->Unpin
+  if(!pages_[frame_id].pin_count_)
+    replacer_->Unpin(frame_id);
   if (is_dirty)
     pages_[frame_id].is_dirty_ = true;
   return true;
@@ -185,6 +193,7 @@ bool BufferPoolManager::FlushPage(page_id_t page_id) {
 
 page_id_t BufferPoolManager::AllocatePage() {
   int next_page_id = disk_manager_->AllocatePage();
+  LOG(INFO) << "next_page_id: " << next_page_id; //todo debug
   return next_page_id;
 }
 
