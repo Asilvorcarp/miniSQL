@@ -79,21 +79,23 @@ Page *BufferPoolManager::NewPage(page_id_t &page_id) {
   // 4.   Set the page ID output parameter. Return a pointer to P.
 
   // 0.   Make sure you call AllocatePage!
-  page_id = AllocatePage();
+  page_id_t P_page_id = AllocatePage();
+
   // 1.   If all the pages in the buffer pool are pinned, return nullptr.
-  bool flag = false;
-  for (size_t i = 0; i < pool_size_; i++)
+  bool isAllPinned = true;
+  for (uint32_t i = 0; i < pool_size_; i++)
   {
     if (pages_[i].GetPinCount() == 0)
     {
-      flag = true;
+      isAllPinned = false;
       break;
     }
   }
-  if (flag == false)
+  if (isAllPinned == true)
     return nullptr;
+
   // 2.   Pick a victim page P from either the free list or the replacer. Always pick from the free list first.
-  frame_id_t frame_id;
+  frame_id_t frame_id; // the Page's index in the BufferPool's pages_ array
   if (!free_list_.empty()) {
     frame_id = free_list_.front();
     free_list_.pop_front();
@@ -102,26 +104,22 @@ Page *BufferPoolManager::NewPage(page_id_t &page_id) {
       LOG(ERROR) << "No free page available";
       return nullptr;
     }
-    // auto page_id = page_table_[frame_id]; //todo
-    page_id_t R = page_table_.find(frame_id)->first;
-    // R is dirty, write it back to the disk. //todo
-    if (pages_[frame_id].IsDirty()) 
-      FlushPage(R);
-    page_table_.erase(R);
   }
+
   // 3.   Update P's metadata, zero out memory and add P to the page table.
-  page_table_[page_id] = frame_id;
-  Page P = pages_[frame_id];
+  Page *P = &pages_[frame_id];
   // Update P's metadata
-  P.ResetMemory();
-  page_table_.insert(std::make_pair(page_id, frame_id));  
+  P->page_id_ = P_page_id;
+  P->pin_count_ = 0;
+  P->is_dirty_ = false;
+  // Zero out memory
+  P->ResetMemory();
+  // Add P to the page table
+  page_table_[P_page_id] = frame_id;
+
   // 4.   Set the page ID output parameter. Return a pointer to P.
-  *page_id = page_id;
-
-  return &P;
-
-
-  return nullptr;
+  page_id = P_page_id;
+  return P;
 }
 
 bool BufferPoolManager::DeletePage(page_id_t page_id) {
