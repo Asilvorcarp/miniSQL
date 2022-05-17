@@ -131,7 +131,7 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveHalfTo(BPlusTreeInternalPage *recipient
   int max = GetMaxSize();
   int half_id = (max + 1)/2;
   page_id_t recipient_id = recipient->GetPageId();
-  for(int i = half_id;i<=max;i++){    //the recipient->array_[0].first should be invalid, but it is not important, we can store |k|p|k|p|,but don't use k(0)
+  for(int i = half_id;i<max;i++){    //the recipient->array_[0].first should be invalid, but it is not important, we can store |k|p|k|p|,but don't use k(0)
     recipient->array_[i-half_id].first = array_[i].first;
     recipient->array_[i-half_id].second = array_[i].second;
     auto temp_page = buffer_pool_manager->FetchPage(array_[i].second);
