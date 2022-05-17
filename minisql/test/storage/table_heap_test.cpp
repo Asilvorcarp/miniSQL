@@ -37,6 +37,7 @@ TEST(TableHeapTest, TableHeapSampleTest) {
     };
     Row row(*fields);
     table_heap->InsertTuple(row, nullptr);
+    table_heap->UpdateTuple(row,row.GetRowId(),nullptr);
     row_values[row.GetRowId().Get()] = fields;
     delete[] characters;
   }

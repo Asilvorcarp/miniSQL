@@ -3,11 +3,14 @@
 
 #include "common/rowid.h"
 #include "record/row.h"
+#include "page/table_page.h"
 #include "transaction/transaction.h"
 
 
 class TableHeap;
+class TablePage;
 
+//End(): page=nullptr  row=last row of last page
 class TableIterator {
 
 public:
@@ -15,6 +18,11 @@ public:
   explicit TableIterator();
 
   explicit TableIterator(const TableIterator &other);
+
+  //own constructor
+  explicit TableIterator(TableHeap *th,RowId *row_id);
+
+  explicit TableIterator(TableHeap *th);
 
   virtual ~TableIterator();
 
@@ -31,6 +39,10 @@ public:
   TableIterator operator++(int);
 
 private:
+  Transaction *txn;
+  TableHeap *table_heap;
+  TablePage *page;
+  Row *row;
   // add your own private member variables here
 };
 

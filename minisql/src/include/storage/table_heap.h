@@ -102,7 +102,7 @@ private:
           schema_(schema),
           log_manager_(log_manager),
           lock_manager_(lock_manager) {
-    ASSERT(false, "Not implemented yet.");
+    //ASSERT(false, "Not implemented yet.");
   };
 
   /**

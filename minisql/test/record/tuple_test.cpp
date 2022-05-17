@@ -37,7 +37,7 @@ Field null_fields[] = {
         Field(TypeId::kTypeInt), Field(TypeId::kTypeFloat), Field(TypeId::kTypeChar)
 };
 
-TEST(TupleTest, DISABLED_FieldSerializeDeserializeTest) {
+TEST(TupleTest, FieldSerializeDeserializeTest) {
   char buffer[PAGE_SIZE];
   memset(buffer, 0, sizeof(buffer));
   // Serialize phase
@@ -121,7 +121,7 @@ TEST(TupleTest, RowTest) {
 
 
 //add some test
-TEST(TupleTest, DISABLED_ColTest) {
+TEST(TupleTest, ColTest) {
   SimpleMemHeap heap;
   TablePage table_page;
   char *space = new char[1000];
@@ -167,7 +167,7 @@ TEST(TupleTest, DISABLED_ColTest) {
 
   delete[] space;
 }
-TEST(TupleTest, DISABLED_SchemaTest) {
+TEST(TupleTest, SchemaTest) {
   SimpleMemHeap heap;
   TablePage table_page;
   char *space = new char[1000];
