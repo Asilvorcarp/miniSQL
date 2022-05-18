@@ -9,6 +9,7 @@ INDEX_TEMPLATE_ARGUMENTS
 BPLUSTREE_TYPE::BPlusTree(index_id_t index_id, BufferPoolManager *buffer_pool_manager, const KeyComparator &comparator,
                           int leaf_max_size, int internal_max_size)
         : index_id_(index_id),
+          root_page_id_(INVALID_PAGE_ID),
           buffer_pool_manager_(buffer_pool_manager),
           comparator_(comparator),
           leaf_max_size_(leaf_max_size),
@@ -23,7 +24,6 @@ void BPLUSTREE_TYPE::Destroy() {
     LeafPage *leftmost_leaf = FindLeafPage(KeyType(), true);
     Remove(leftmost_leaf->KeyAt(0)); // maybe replace with Begin() later
   }
-  ~BPlusTree();
 
   // or:
   // // destroy by traversing the tree
@@ -98,17 +98,17 @@ void BPLUSTREE_TYPE::StartNewTree(const KeyType &key, const ValueType &value) {
   page_id_t new_root_pid;
   Page *new_root_page = buffer_pool_manager_->NewPage(new_root_pid);
   if (new_root_page == nullptr) {
-    throw std::bad_alloc("out of memory");
+    throw std::bad_alloc();
   }
   // init root as leaf
   LeafPage *root_as_leaf =
       reinterpret_cast<LeafPage *>(new_root_page->GetData());
-  new_root_leaf->Init(new_root_pid, buffer_pool_manager_, leaf_max_size_, internal_max_size_);
+  root_as_leaf->Init(new_root_pid, INVALID_PAGE_ID);
   // insert entry into leaf
   InsertIntoLeaf(key, value);
   // update root page id
   root_page_id_ = new_root_pid;
-  UpdateRootPageId(true)
+  UpdateRootPageId(true);
 }
 
 /*
@@ -122,8 +122,10 @@ void BPLUSTREE_TYPE::StartNewTree(const KeyType &key, const ValueType &value) {
 INDEX_TEMPLATE_ARGUMENTS
 bool BPLUSTREE_TYPE::InsertIntoLeaf(const KeyType &key, const ValueType &value, Transaction *transaction) {
   LeafPage *leaf_page = FindLeafPage(key);
-  bool isExist = leaf_page->Lookup(key, value, comparator_);
-  if (isExist) {
+  assert(leaf_page != nullptr); // for debug
+  ValueType value_discard;
+  bool ifExist = leaf_page->Lookup(key, value_discard, comparator_);
+  if (ifExist) {
     buffer_pool_manager_->UnpinPage(leaf_page->GetPageId(), false);
     return false;
   }
@@ -159,7 +161,7 @@ N *BPLUSTREE_TYPE::Split(N *node) {
   page_id_t new_page_id;
   Page *new_page = buffer_pool_manager_->NewPage(new_page_id);
   if (new_page == nullptr) {
-      throw std::bad_alloc("out of memory");
+      throw std::bad_alloc();
   }
 
   N *new_node = reinterpret_cast<N *>(new_page->GetData());
@@ -186,7 +188,7 @@ void BPLUSTREE_TYPE::InsertIntoParent(BPlusTreePage *old_node, const KeyType &ke
     page_id_t new_root_pid;
     Page *new_root_page = buffer_pool_manager_->NewPage(new_root_pid);
     if (new_root_page == nullptr) {
-        throw std::bad_alloc("out of memory");
+        throw std::bad_alloc();
     }
     InternalPage *new_root = reinterpret_cast<InternalPage *>(new_root_page->GetData());
     new_root->Init(new_root_pid);
@@ -197,7 +199,7 @@ void BPLUSTREE_TYPE::InsertIntoParent(BPlusTreePage *old_node, const KeyType &ke
     new_node->SetParentPageId(new_root_pid);
 
     // update root page id
-    //LOG(INFO) << "new root pid: " << new_root_pid;
+    // LOG(INFO) << "new root pid: " << new_root_pid;
     root_page_id_ = new_root_pid;
     UpdateRootPageId(false);
 
