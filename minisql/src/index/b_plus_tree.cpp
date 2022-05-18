@@ -17,7 +17,26 @@ BPLUSTREE_TYPE::BPlusTree(index_id_t index_id, BufferPoolManager *buffer_pool_ma
 
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::Destroy() {
-  //TODO(yj)
+  // destroy by removing all keys //todo: not sure
+  while (!IsEmpty())
+  {
+    LeafPage *leftmost_leaf = FindLeafPage(KeyType(), true);
+    Remove(leftmost_leaf->KeyAt(0)); // maybe replace with Begin() later
+  }
+  ~BPlusTree();
+
+  // or:
+  // // destroy by traversing the tree
+  // page_id_t node_pid = root_page_id_;
+  // Page *node_page = buffer_pool_manager_->FetchPage(node_pid);
+  // BPlusTreePage *node = reinterpret_cast<BPlusTreePage *>(node_page);
+  // // end traversing when the node is a leaf
+  // if (node->IsLeafPage()) {
+  //   buffer_pool_manager_->UnpinPage(node_pid, true);
+  //   buffer_pool_manager_->DeletePage(node_pid);
+  //   return;
+  // }
+  // // DestroyChilds()
 }
 
 /*
@@ -38,7 +57,11 @@ bool BPLUSTREE_TYPE::IsEmpty() const {
  */
 INDEX_TEMPLATE_ARGUMENTS
 bool BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> &result, Transaction *transaction) {
-  B_PLUS_TREE_LEAF_PAGE_TYPE *leaf_page = FindLeafPage(key, false);
+  LeafPage *leaf_page = FindLeafPage(key);
+  if (leaf_page == nullptr) 
+  { // not found
+    return false;
+  }
   result.resize(1);
   bool res = leaf_page->Lookup(key, result[0], comparator_);
   buffer_pool_manager_->UnpinPage(leaf_page->GetPageId(), false);
@@ -71,6 +94,21 @@ bool BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
  */
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::StartNewTree(const KeyType &key, const ValueType &value) {
+  // ask for new page from buffer pool manager
+  page_id_t new_root_pid;
+  Page *new_root_page = buffer_pool_manager_->NewPage(new_root_pid);
+  if (new_root_page == nullptr) {
+    throw std::bad_alloc("out of memory");
+  }
+  // init root as leaf
+  LeafPage *root_as_leaf =
+      reinterpret_cast<LeafPage *>(new_root_page->GetData());
+  new_root_leaf->Init(new_root_pid, buffer_pool_manager_, leaf_max_size_, internal_max_size_);
+  // insert entry into leaf
+  InsertIntoLeaf(key, value);
+  // update root page id
+  root_page_id_ = new_root_pid;
+  UpdateRootPageId(true)
 }
 
 /*
@@ -83,6 +121,27 @@ void BPLUSTREE_TYPE::StartNewTree(const KeyType &key, const ValueType &value) {
  */
 INDEX_TEMPLATE_ARGUMENTS
 bool BPLUSTREE_TYPE::InsertIntoLeaf(const KeyType &key, const ValueType &value, Transaction *transaction) {
+  LeafPage *leaf_page = FindLeafPage(key);
+  bool isExist = leaf_page->Lookup(key, value, comparator_);
+  if (isExist) {
+    buffer_pool_manager_->UnpinPage(leaf_page->GetPageId(), false);
+    return false;
+  }
+
+  if (leaf_page->GetSize() < leaf_page->GetMaxSize())
+  { // dont need to split
+    leaf_page->Insert(key, value, comparator_);
+    buffer_pool_manager_->UnpinPage(leaf_page->GetPageId(), true); // dirty now
+    return true;
+  }
+
+  assert(leaf_page->GetSize() == leaf_page->GetMaxSize());
+  // split leaf page
+  leaf_page->Insert(key, value, comparator_);
+  LeafPage *new_leaf = Split(leaf_page);
+  InsertIntoParent(leaf_page, leaf_page->KeyAt(0), new_leaf);
+
+  buffer_pool_manager_->UnpinPage(leaf_page->GetPageId(), true);
   return false;
 }
 
@@ -96,7 +155,17 @@ bool BPLUSTREE_TYPE::InsertIntoLeaf(const KeyType &key, const ValueType &value, 
 INDEX_TEMPLATE_ARGUMENTS
 template<typename N>
 N *BPLUSTREE_TYPE::Split(N *node) {
-  return nullptr;
+  // ask for new page from buffer pool manager
+  page_id_t new_page_id;
+  Page *new_page = buffer_pool_manager_->NewPage(new_page_id);
+  if (new_page == nullptr) {
+      throw std::bad_alloc("out of memory");
+  }
+
+  N *new_node = reinterpret_cast<N *>(new_page->GetData());
+  new_node->Init(new_page_id, node->GetParentPageId());
+  node->MoveHalfTo(new_node);
+  return new_node;
 }
 
 /*
@@ -111,6 +180,34 @@ N *BPLUSTREE_TYPE::Split(N *node) {
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::InsertIntoParent(BPlusTreePage *old_node, const KeyType &key, BPlusTreePage *new_node,
                                       Transaction *transaction) {
+  // todo: doing
+  if (old_node->IsRootPage()) {
+    // old_node is root
+    page_id_t new_root_pid;
+    Page *new_root_page = buffer_pool_manager_->NewPage(new_root_pid);
+    if (new_root_page == nullptr) {
+        throw std::bad_alloc("out of memory");
+    }
+    InternalPage *new_root = reinterpret_cast<InternalPage *>(new_root_page->GetData());
+    new_root->Init(new_root_pid);
+    new_root->PopulateNewRoot(old_node->GetPageId(), key, new_node->GetPageId());
+
+    // maintain parents
+    old_node->SetParentPageId(new_root_pid);
+    new_node->SetParentPageId(new_root_pid);
+
+    // update root page id
+    //LOG(INFO) << "new root pid: " << new_root_pid;
+    root_page_id_ = new_root_pid;
+    UpdateRootPageId(false);
+
+    buffer_pool_manager_->UnpinPage(new_root_pid, true);
+    buffer_pool_manager_->UnpinPage(old_node->GetPageId(), true);
+    buffer_pool_manager_->UnpinPage(new_node->GetPageId(), true);
+    return;
+  }
+  // not root:
+
 }
 
 /*****************************************************************************
@@ -125,6 +222,21 @@ void BPLUSTREE_TYPE::InsertIntoParent(BPlusTreePage *old_node, const KeyType &ke
  */
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
+    // todo
+    // assert(transaction != nullptr);
+
+    LeafPage *target_leaf = FindLeafPage(key);
+    if (target_leaf == nullptr) {
+        return;
+    }
+    page_id_t target_pid = target_leaf->GetPageId();
+    int size_after_delete = target_leaf->RemoveAndDeleteRecord(key, comparator_);
+    if (size_after_delete < target_leaf->GetMinSize()) {
+        CoalesceOrRedistribute(target_leaf, transaction);
+    } else {
+        buffer_pool_manager_->UnpinPage(target_pid, true);
+    }
+    buffer_pool_manager_->UnpinPage(target_pid, true);
 }
 
 /*
@@ -244,7 +356,10 @@ B_PLUS_TREE_LEAF_PAGE_TYPE *BPLUSTREE_TYPE::FindLeafPage(const KeyType &key, boo
  */
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::UpdateRootPageId(int insert_record) {
-
+  /**
+   * todo: where is the god damn header_page?
+   * maybe this method is useless.
+   **/
 }
 
 /**
