@@ -56,7 +56,8 @@ public:
   int RemoveAndDeleteRecord(const KeyType &key, const KeyComparator &comparator);
 
   // Split and Merge utility methods
-  void MoveHalfTo(BPlusTreeLeafPage *recipient);
+  void MoveHalfTo(BPlusTreeLeafPage *recipient, 
+                  BufferPoolManager *buffer_pool_manager = nullptr /* unused parameter */);
 
   void MoveAllTo(BPlusTreeLeafPage *recipient);
 

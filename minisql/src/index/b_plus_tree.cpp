@@ -166,7 +166,7 @@ N *BPLUSTREE_TYPE::Split(N *node) {
 
   N *new_node = reinterpret_cast<N *>(new_page->GetData());
   new_node->Init(new_page_id, node->GetParentPageId());
-  node->MoveHalfTo(new_node);
+  node->MoveHalfTo(new_node, buffer_pool_manager_);
   return new_node;
 }
 
@@ -182,7 +182,7 @@ N *BPLUSTREE_TYPE::Split(N *node) {
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::InsertIntoParent(BPlusTreePage *old_node, const KeyType &key, BPlusTreePage *new_node,
                                       Transaction *transaction) {
-  // todo: doing
+  // todo: check
   if (old_node->IsRootPage()) {
     // old_node is root
     page_id_t new_root_pid;
@@ -209,7 +209,33 @@ void BPLUSTREE_TYPE::InsertIntoParent(BPlusTreePage *old_node, const KeyType &ke
     return;
   }
   // not root:
+  page_id_t parent_pid = old_node->GetParentPageId();
+  InternalPage *parent = 
+    reinterpret_cast<InternalPage *>(buffer_pool_manager_->FetchPage(parent_pid)->GetData());
 
+  // maintain parents
+  new_node->SetParentPageId(parent_pid);
+
+  if (parent->GetSize() < parent->GetMaxSize()) 
+  { // parent not full
+    int sizeNow = parent->InsertNodeAfter(old_node->GetPageId(), key, new_node->GetPageId());
+    assert(sizeNow <= parent->GetMaxSize());
+    buffer_pool_manager_->UnpinPage(old_node->GetPageId(), true);
+    buffer_pool_manager_->UnpinPage(new_node->GetPageId(), true);
+  } else {
+    // parent split
+    assert(parent->GetSize() == parent->GetMaxSize());
+
+    parent->InsertNodeAfter(old_node->GetPageId(), key, new_node->GetPageId());
+    buffer_pool_manager_->UnpinPage(old_node->GetPageId(), true);
+    buffer_pool_manager_->UnpinPage(new_node->GetPageId(), true);
+
+    InternalPage *parent_new_sibling = Split(parent);
+    assert(parent->GetSize() < parent->GetMaxSize());
+    // recursively
+    InsertIntoParent(parent, parent_new_sibling->KeyAt(0), parent_new_sibling, transaction);
+  }
+  buffer_pool_manager_->UnpinPage(parent_pid, true);
 }
 
 /*****************************************************************************
@@ -251,6 +277,7 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
 INDEX_TEMPLATE_ARGUMENTS
 template<typename N>
 bool BPLUSTREE_TYPE::CoalesceOrRedistribute(N *node, Transaction *transaction) {
+  // todo: doing
   return false;
 }
 

@@ -103,17 +103,19 @@ int B_PLUS_TREE_LEAF_PAGE_TYPE::Insert(const KeyType &key, const ValueType &valu
  * Remove half of key & value pairs from this page to "recipient" page
  */
 INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveHalfTo(BPlusTreeLeafPage *recipient) {
-  //use when depart one leaf page to two ,so the recipient should be empty
+void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveHalfTo(BPlusTreeLeafPage *recipient, 
+                            __attribute__((unused)) BufferPoolManager *buffer_pool_manager) {
+  // the unused parameter is for "node->MoveHalfTo(new_node, buffer_pool_manager_);" in b_plus_tree.cpp
+  // use when depart one leaf page to two ,so the recipient should be empty
   assert(recipient != nullptr);
   int max = GetMaxSize();
   int half_id = (max + 1)/2;    // ceil
-  //move 
+  // move 
   for(int i = half_id;i<max;i++){    
     recipient->array_[i-half_id].first = array_[i].first;
     recipient->array_[i-half_id].second = array_[i].second;
   }
-  //insert into the list
+  // insert into the list
   recipient->SetNextPageId(GetNextPageId());
   SetNextPageId(recipient->GetPageId());
   // renew the size
