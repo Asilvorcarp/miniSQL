@@ -33,7 +33,7 @@ Page *BufferPoolManager::FetchPage(page_id_t page_id) {
   // 1.     Search the page table for the requested page (P).
   try
   { // P exist
-    frame_id_t P_frame_id = page_table_.at(page_id); // may raise err out_of_range
+    frame_id_t P_frame_id = page_table_.at(page_id); // may throw err out_of_range
     pages_[P_frame_id].pin_count_++;
     replacer_->Pin(P_frame_id);
     return &pages_[P_frame_id];
@@ -138,7 +138,7 @@ bool BufferPoolManager::DeletePage(page_id_t page_id) {
   frame_id_t P_frame_id;
   try
   { 
-    P_frame_id = page_table_.at(page_id); // may raise err out_of_range
+    P_frame_id = page_table_.at(page_id); // may throw err out_of_range
   }
   catch(const std::out_of_range& e)
   { // P not exist, return true.
