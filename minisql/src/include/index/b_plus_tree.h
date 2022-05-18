@@ -51,7 +51,7 @@ public:
   INDEXITERATOR_TYPE End();
 
   // expose for test purpose
-  Page *FindLeafPage(const KeyType &key, bool leftMost = false);
+  B_PLUS_TREE_LEAF_PAGE_TYPE *FindLeafPage(const KeyType &key, bool leftMost = false);
 
   // used to check whether all pages are unpinned
   bool Check();

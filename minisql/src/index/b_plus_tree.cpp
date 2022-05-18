@@ -230,7 +230,7 @@ INDEXITERATOR_TYPE BPLUSTREE_TYPE::End() {
  * Note: the leaf page is pinned, you need to unpin it after use.
  */
 INDEX_TEMPLATE_ARGUMENTS
-Page *BPLUSTREE_TYPE::FindLeafPage(const KeyType &key, bool leftMost) {
+B_PLUS_TREE_LEAF_PAGE_TYPE *BPLUSTREE_TYPE::FindLeafPage(const KeyType &key, bool leftMost) {
   return nullptr;
 }
 
