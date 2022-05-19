@@ -1,4 +1,5 @@
 build/
 .vscode/
+.idea/
 /temp
 /temp.cpp
