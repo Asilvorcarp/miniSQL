@@ -34,9 +34,7 @@ TEST(BPlusTreeTests, SampleTest) {
   }
   // Insert data
   for (int i = 0; i < n; i++) {
-    LOG(INFO)<<"Insert "<<keys[i]<<" "<<values[i];
     tree.Insert(keys[i], values[i]);
-    tree.PrintTree(mgr[i+1000]);
   }
   ASSERT_TRUE(tree.Check());
   // Print tree
@@ -45,7 +43,6 @@ TEST(BPlusTreeTests, SampleTest) {
   vector<int> ans;
   for (int i = 0; i < n; i++) {
     tree.GetValue(i, ans);
-    LOG(INFO) << "key: " << i << ", kv_map[i]: " << kv_map[i] << ", ans[i]: " << ans[i] << endl;
     ASSERT_EQ(kv_map[i], ans[i]);
   }
   ASSERT_TRUE(tree.Check());

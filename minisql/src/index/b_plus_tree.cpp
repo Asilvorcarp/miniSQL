@@ -103,12 +103,12 @@ void BPLUSTREE_TYPE::StartNewTree(const KeyType &key, const ValueType &value) {
   // init root as leaf
   LeafPage *root_as_leaf = \
       reinterpret_cast<LeafPage *>(new_root_page->GetData());
-  root_as_leaf->Init(new_root_pid, INVALID_PAGE_ID);
-  // insert entry into leaf
-  InsertIntoLeaf(key, value);
+  root_as_leaf->Init(new_root_pid, INVALID_PAGE_ID, leaf_max_size_);
   // update root page id
   root_page_id_ = new_root_pid;
   UpdateRootPageId(true);
+  // insert entry into leaf
+  InsertIntoLeaf(key, value);
 }
 
 /*
@@ -165,7 +165,8 @@ N *BPLUSTREE_TYPE::Split(N *node) {
   }
 
   N *new_node = reinterpret_cast<N *>(new_page->GetData());
-  new_node->Init(new_page_id, node->GetParentPageId());
+  new_node->Init(new_page_id, node->GetParentPageId(), leaf_max_size_);
+  // todo: different max size for internal and leaf (internal_max_size_)
   node->MoveHalfTo(new_node, buffer_pool_manager_);
   
   return new_node;
@@ -191,7 +192,7 @@ void BPLUSTREE_TYPE::InsertIntoParent(BPlusTreePage *old_node, const KeyType &ke
         throw std::bad_alloc();
     }
     InternalPage *new_root = reinterpret_cast<InternalPage *>(new_root_page->GetData());
-    new_root->Init(new_root_pid);
+    new_root->Init(new_root_pid, INVALID_PAGE_ID, internal_max_size_);
     new_root->PopulateNewRoot(old_node->GetPageId(), key, new_node->GetPageId());
 
     // maintain parents
