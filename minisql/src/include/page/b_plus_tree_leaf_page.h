@@ -65,6 +65,23 @@ public:
 
   void MoveLastToFrontOf(BPlusTreeLeafPage *recipient);
 
+  // new: to be compatible with BPlusTreeInternalPage
+  void MoveFirstToEndOf(BPlusTreeLeafPage *recipient, 
+        __attribute__((unused)) const KeyType &middle_key, 
+        __attribute__((unused)) BufferPoolManager *buffer_pool_manager){
+    MoveFirstToEndOf(recipient);
+  }
+  void MoveLastToFrontOf(BPlusTreeLeafPage *recipient, 
+        __attribute__((unused)) const KeyType &middle_key,
+        __attribute__((unused)) BufferPoolManager *buffer_pool_manager){
+    MoveLastToFrontOf(recipient);
+  }
+  void MoveAllTo(BPlusTreeLeafPage *recipient, 
+        __attribute__((unused)) const KeyType &middle_key,
+        __attribute__((unused)) BufferPoolManager *buffer_pool_manager){
+    MoveAllTo(recipient);
+  }
+
 private:
   void CopyNFrom(MappingType *items, int size);
 

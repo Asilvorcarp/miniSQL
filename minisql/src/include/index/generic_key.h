@@ -42,6 +42,16 @@ public:
     return os;
   }
 
+  // new: convert int to key // todo: ensure correctness
+  GenericKey(int num) {
+    assert(KeySize >= 4); // at least 4 bytes
+    memset(data, 0, KeySize);
+    *reinterpret_cast<int *>(data) = num;
+  }
+  GenericKey() {
+    memset(data, 0, KeySize);
+  }
+
   // actual location of data, extends past the end.
   char data[KeySize];
 };

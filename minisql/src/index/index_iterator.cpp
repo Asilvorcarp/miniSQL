@@ -2,30 +2,53 @@
 #include "index/generic_key.h"
 #include "index/index_iterator.h"
 
-INDEX_TEMPLATE_ARGUMENTS INDEXITERATOR_TYPE::IndexIterator() {
-
-}
+INDEX_TEMPLATE_ARGUMENTS INDEXITERATOR_TYPE::IndexIterator(B_PLUS_TREE_LEAF_PAGE_TYPE *leaf, int index, BufferPoolManager *bpm)
+  :leaf_(leaf), index_(index), bpm_(bpm) {}
 
 INDEX_TEMPLATE_ARGUMENTS INDEXITERATOR_TYPE::~IndexIterator() {
-
+    if (leaf_ != nullptr) {
+        bpm_->UnpinPage(leaf_->GetPageId(), false);
+        bpm_->UnpinPage(leaf_->GetPageId(), false);
+    }
 }
 
 INDEX_TEMPLATE_ARGUMENTS const MappingType &INDEXITERATOR_TYPE::operator*() {
-  ASSERT(false, "Not implemented yet.");
+  return leaf_->GetItem(index_);
 }
 
 INDEX_TEMPLATE_ARGUMENTS INDEXITERATOR_TYPE &INDEXITERATOR_TYPE::operator++() {
-  ASSERT(false, "Not implemented yet.");
+  index_++;
+  if (index_ >= leaf_->GetSize()) {
+    page_id_t next_page_id = leaf_->GetNextPageId();
+    if (next_page_id == INVALID_PAGE_ID) {
+      // Page *page = bmp_->FetchPage(leaf_->GetPageId()); // todo: test and remove
+      // bmp_->UnpinPage(leaf_->GetPageId(), false);
+      bpm_->UnpinPage(leaf_->GetPageId(), false);
+      leaf_ = nullptr;
+    } else {
+      // update leaf to next_page
+      Page *next_page = bpm_->FetchPage(next_page_id);
+      // Page *page = bmp_->FetchPage(leaf_->GetPageId());
+      // bmp_->UnpinPage(leaf_->GetPageId(), false);
+      bpm_->UnpinPage(leaf_->GetPageId(), false);
+      leaf_ = reinterpret_cast<B_PLUS_TREE_LEAF_PAGE_TYPE *>(next_page->GetData());
+      index_ = 0;
+    }
+  }
+  return *this;
 }
 
 INDEX_TEMPLATE_ARGUMENTS
 bool INDEXITERATOR_TYPE::operator==(const IndexIterator &itr) const {
+  if (leaf_ == itr.leaf_ && index_ == itr.index_ && bpm_ == itr.bpm_) {
+    return true;
+  }
   return false;
 }
 
 INDEX_TEMPLATE_ARGUMENTS
 bool INDEXITERATOR_TYPE::operator!=(const IndexIterator &itr) const {
-  return false;
+  return !(*this == itr);
 }
 
 template
