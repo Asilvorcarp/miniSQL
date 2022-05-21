@@ -259,14 +259,7 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveFirstToEndOf(BPlusTreeInternalPage *rec
   assert(child->GetParentPageId() == recipient->GetPageId());
   buffer_pool_manager->UnpinPage(child->GetPageId(), true);
 
-  //update relavent key & value pair in its parent page.
-  page = buffer_pool_manager->FetchPage(GetParentPageId());
-  BPlusTreeInternalPage *parent = reinterpret_cast<BPlusTreeInternalPage *>(page->GetData());
-  //! not sure ! depend on what is middle_key
-  parent->SetKeyAt(parent->ValueIndex(GetPageId()), array_[0].first);
-  //middle_key = array_[0].first;
-
-  buffer_pool_manager->UnpinPage(GetParentPageId(), true);
+  // the caller would update parent
 }
 
 /* Append an entry at the end.
@@ -302,13 +295,7 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveLastToFrontOf(BPlusTreeInternalPage *re
   assert(child->GetParentPageId() == recipient->GetPageId());
   buffer_pool_manager->UnpinPage(child->GetPageId(), true);
 
-  //update relavent key & value pair in recipient's parent page.
-  page = buffer_pool_manager->FetchPage(recipient->GetParentPageId());    //the recipient
-  BPlusTreeInternalPage *parent = reinterpret_cast<BPlusTreeInternalPage *>(page->GetData());   //get the recipient's parentpage
-  //! not sure ! depend on what is middle_key
-  parent->SetKeyAt(parent->ValueIndex(recipient->GetPageId()), array_[0].first);
-  //middle_key = array_[0].first;
-  buffer_pool_manager->UnpinPage(recipient->GetParentPageId(), true);
+  // the caller would update parent
 }
 
 /* Append an entry at the beginning.
