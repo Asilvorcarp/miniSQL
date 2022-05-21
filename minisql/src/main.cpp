@@ -11,6 +11,8 @@ FILE *yyin;
 #include "parser/parser.h"
 }
 
+#define ENABLE_PARSER_DEBUG // todo:for debug
+
 void InitGoogleLog(char *argv) {
   FLAGS_logtostderr = true;
   FLAGS_colorlogtostderr = true;
@@ -62,11 +64,11 @@ int main(int argc, char **argv) {
       // error
       printf("%s\n", MinisqlParserGetErrorMessage());
     } else {
-#ifdef ENABLE_PARSER_DEBUG
-      printf("[INFO] Sql syntax parse ok!\n");
-      SyntaxTreePrinter printer(MinisqlGetParserRootNode());
-      printer.PrintTree(syntax_tree_file_mgr[syntax_tree_id++]);
-#endif
+      #ifdef ENABLE_PARSER_DEBUG
+        printf("[INFO] Sql syntax parse ok!\n");
+        SyntaxTreePrinter printer(MinisqlGetParserRootNode());
+        printer.PrintTree(syntax_tree_file_mgr[syntax_tree_id++]);
+      #endif
     }
 
     ExecuteContext context;

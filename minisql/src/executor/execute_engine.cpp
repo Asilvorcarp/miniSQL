@@ -1,8 +1,9 @@
 #include "executor/execute_engine.h"
 #include "glog/logging.h"
 
-ExecuteEngine::ExecuteEngine() {
+#define ENABLE_EXECUTE_DEBUG // todo:for debug
 
+ExecuteEngine::ExecuteEngine() {
 }
 
 dberr_t ExecuteEngine::Execute(pSyntaxNode ast, ExecuteContext *context) {
@@ -58,6 +59,7 @@ dberr_t ExecuteEngine::ExecuteCreateDatabase(pSyntaxNode ast, ExecuteContext *co
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteCreateDatabase" << std::endl;
 #endif
+  
   return DB_FAILED;
 }
 
@@ -153,23 +155,26 @@ dberr_t ExecuteEngine::ExecuteUpdate(pSyntaxNode ast, ExecuteContext *context) {
 }
 
 dberr_t ExecuteEngine::ExecuteTrxBegin(pSyntaxNode ast, ExecuteContext *context) {
-#ifdef ENABLE_EXECUTE_DEBUG
-  LOG(INFO) << "ExecuteTrxBegin" << std::endl;
-#endif
+  // needless to implement
+  #ifdef ENABLE_EXECUTE_DEBUG
+    LOG(INFO) << "ExecuteTrxBegin" << std::endl;
+  #endif
   return DB_FAILED;
 }
 
 dberr_t ExecuteEngine::ExecuteTrxCommit(pSyntaxNode ast, ExecuteContext *context) {
-#ifdef ENABLE_EXECUTE_DEBUG
-  LOG(INFO) << "ExecuteTrxCommit" << std::endl;
-#endif
+  // needless to implement
+  #ifdef ENABLE_EXECUTE_DEBUG
+    LOG(INFO) << "ExecuteTrxCommit" << std::endl;
+  #endif
   return DB_FAILED;
 }
 
 dberr_t ExecuteEngine::ExecuteTrxRollback(pSyntaxNode ast, ExecuteContext *context) {
-#ifdef ENABLE_EXECUTE_DEBUG
-  LOG(INFO) << "ExecuteTrxRollback" << std::endl;
-#endif
+  // needless to implement
+  #ifdef ENABLE_EXECUTE_DEBUG
+    LOG(INFO) << "ExecuteTrxRollback" << std::endl;
+  #endif
   return DB_FAILED;
 }
 
