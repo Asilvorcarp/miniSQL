@@ -17,8 +17,8 @@ TEST(BPlusTreeTests, SampleTest) {
 
   TreeFileManagers mgr("tree_");
   // Prepare data
-  const int n = 500;
-  // const int n = 30; // todo: bigger
+  const int n = 500; // bigger
+  // const int n = 30; 
   vector<int> keys;
   vector<int> values;
   vector<int> delete_seq;

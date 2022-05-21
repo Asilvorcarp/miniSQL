@@ -42,7 +42,7 @@ public:
     return os;
   }
 
-  // new: convert int to key // todo: ensure correctness
+  // new: convert int to key
   GenericKey(int num) {
     assert(KeySize >= 4); // at least 4 bytes
     memset(data, 0, KeySize);

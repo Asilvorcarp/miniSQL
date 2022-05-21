@@ -18,25 +18,12 @@ BPLUSTREE_TYPE::BPlusTree(index_id_t index_id, BufferPoolManager *buffer_pool_ma
 
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::Destroy() {
-  // destroy by removing all keys //todo: not sure
+  // destroy by removing all keys // todo: not sure
   while (!IsEmpty())
   {
     LeafPage *leftmost_leaf = FindLeafPage(KeyType(), true);
     Remove(leftmost_leaf->KeyAt(0)); // maybe replace with Begin() later
   }
-
-  // or:
-  // // destroy by traversing the tree
-  // page_id_t node_pid = root_page_id_;
-  // Page *node_page = buffer_pool_manager_->FetchPage(node_pid);
-  // BPlusTreePage *node = reinterpret_cast<BPlusTreePage *>(node_page);
-  // // end traversing when the node is a leaf
-  // if (node->IsLeafPage()) {
-  //   buffer_pool_manager_->UnpinPage(node_pid, true);
-  //   buffer_pool_manager_->DeletePage(node_pid);
-  //   return;
-  // }
-  // // DestroyChilds()
 }
 
 /*
@@ -193,7 +180,6 @@ N *BPLUSTREE_TYPE::Split(N *node) {
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::InsertIntoParent(BPlusTreePage *old_node, const KeyType &key, BPlusTreePage *new_node,
                                       Transaction *transaction) {
-  // todo: check
   if (old_node->IsRootPage()) {
     // old_node is root
     page_id_t new_root_pid;
@@ -261,7 +247,6 @@ void BPLUSTREE_TYPE::InsertIntoParent(BPlusTreePage *old_node, const KeyType &ke
  */
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
-  // todo: may need to modify
   LeafPage *target_leaf = FindLeafPage(key);
   if (target_leaf == nullptr) {
     return;
@@ -284,7 +269,6 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
 INDEX_TEMPLATE_ARGUMENTS
 template <typename N>
 bool BPLUSTREE_TYPE::CoalesceOrRedistribute(N *node, Transaction *transaction) {
-  // todo: doing
   assert(node->GetSize() < node->GetMinSize());
 
   if (node->IsRootPage()) {
@@ -426,7 +410,6 @@ bool BPLUSTREE_TYPE::AdjustRoot(BPlusTreePage *old_root_node) {
   UpdateRootPageId();
   Page *new_root_page = GetPageWithPid(root_page_id_);
   BPlusTreePage *new_root = reinterpret_cast<BPlusTreePage *>(new_root_page->GetData()); 
-  // todo: check if new_root is internal
   new_root->SetParentPageId(INVALID_PAGE_ID);
   buffer_pool_manager_->UnpinPage(root_page_id_, true);
   buffer_pool_manager_->UnpinPage(old_root_node->GetPageId(), true);
@@ -459,7 +442,6 @@ INDEXITERATOR_TYPE BPLUSTREE_TYPE::Begin() {
  */
 INDEX_TEMPLATE_ARGUMENTS
 INDEXITERATOR_TYPE BPLUSTREE_TYPE::Begin(const KeyType &key) {
-  // todo: test
   LeafPage *start_leaf = FindLeafPage(key);
   int start_index = 0;
   if (start_leaf != nullptr) {
@@ -484,7 +466,6 @@ INDEXITERATOR_TYPE BPLUSTREE_TYPE::Begin(const KeyType &key) {
  */
 INDEX_TEMPLATE_ARGUMENTS
 INDEXITERATOR_TYPE BPLUSTREE_TYPE::End() {
-  // todo: test
   INDEXITERATOR_TYPE iter = Begin();
   INDEXITERATOR_TYPE lastIter = iter; // last valid one
   while (iter.isValid())
@@ -505,7 +486,6 @@ INDEXITERATOR_TYPE BPLUSTREE_TYPE::End() {
  */
 INDEX_TEMPLATE_ARGUMENTS
 B_PLUS_TREE_LEAF_PAGE_TYPE *BPLUSTREE_TYPE::FindLeafPage(const KeyType &key, bool leftMost) {
-  // todo: test
   if (IsEmpty()) {
     return nullptr;
   }

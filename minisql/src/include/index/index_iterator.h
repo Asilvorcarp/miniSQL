@@ -32,9 +32,9 @@ public:
 
 private:
   // add your own private member variables here
-  B_PLUS_TREE_LEAF_PAGE_TYPE *leaf_; // todo(yj): may mod
-  int index_;
+  B_PLUS_TREE_LEAF_PAGE_TYPE *leaf_;
   BufferPoolManager *bpm_;
+  int index_;
 };
 
 
