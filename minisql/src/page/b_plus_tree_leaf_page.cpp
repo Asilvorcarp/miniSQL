@@ -108,10 +108,11 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveHalfTo(BPlusTreeLeafPage *recipient,
   // the unused parameter is for "node->MoveHalfTo(new_node, buffer_pool_manager_);" in b_plus_tree.cpp
   // use when depart one leaf page to two ,so the recipient should be empty
   assert(recipient != nullptr);
+  assert(GetSize() == GetMaxSize() + 1); // split when Overload
   int max = GetMaxSize();
-  int half_id = (max + 1)/2;    // ceil
+  int half_id = max / 2 + 1;    // ceil
   // move 
-  for(int i = half_id;i<max;i++){    
+  for(int i = half_id;i<=max;i++){    
     recipient->array_[i-half_id].first = array_[i].first;
     recipient->array_[i-half_id].second = array_[i].second;
   }

@@ -141,9 +141,10 @@ bool BPLUSTREE_TYPE::InsertIntoLeaf(const KeyType &key, const ValueType &value, 
   // split leaf page
   leaf_page->Insert(key, value, comparator_);
   LeafPage *new_leaf = Split(leaf_page);
-  InsertIntoParent(leaf_page, leaf_page->KeyAt(0), new_leaf);
+  InsertIntoParent(leaf_page, new_leaf->KeyAt(0), new_leaf);
 
   buffer_pool_manager_->UnpinPage(leaf_page->GetPageId(), true);
+  buffer_pool_manager_->UnpinPage(new_leaf->GetPageId(), true);
   return false;
 }
 

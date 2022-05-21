@@ -11,7 +11,10 @@ TEST(BPlusTreeTests, SampleTest) {
   // Init engine
   DBStorageEngine engine(db_name);
   BasicComparator<int> comparator;
-  BPlusTree<int, int, BasicComparator<int>> tree(0, engine.bpm_, comparator, 4, 4);
+  
+  BPlusTree<int, int, BasicComparator<int>> tree(0, engine.bpm_, comparator, 3, 4);
+  // size 3,4 to be the same as https://www.cs.usfca.edu/~galles/visualization/BPlusTree.html
+
   TreeFileManagers mgr("tree_");
   // Prepare data
   const int n = 30;
@@ -20,14 +23,17 @@ TEST(BPlusTreeTests, SampleTest) {
   vector<int> delete_seq;
   map<int, int> kv_map;
   for (int i = 0; i < n; i++) {
-    keys.push_back(i);
-    values.push_back(i);
-    delete_seq.push_back(i);
+    keys.push_back(i+100);
+    values.push_back(i+100);
+    delete_seq.push_back(i+100);
   }
   // Shuffle data
-  ShuffleArray(keys);
-  ShuffleArray(values);
-  ShuffleArray(delete_seq);
+
+  // todo: enable Shuffle
+  // ShuffleArray(keys);
+  // ShuffleArray(values);
+  // ShuffleArray(delete_seq);
+  
   // Map key value
   for (int i = 0; i < n; i++) {
     kv_map[keys[i]] = values[i];
@@ -62,5 +68,12 @@ TEST(BPlusTreeTests, SampleTest) {
   for (int i = n / 2; i < n; i++) {
     ASSERT_TRUE(tree.GetValue(delete_seq[i], ans));
     ASSERT_EQ(kv_map[delete_seq[i]], ans[ans.size() - 1]);
+  }
+
+  // clear all tree file
+  for (size_t i = 0; i < n; i++)
+  {
+    string file_name = "tree_"+to_string(i+1000)+".txt";
+    remove(file_name.c_str());
   }
 }
