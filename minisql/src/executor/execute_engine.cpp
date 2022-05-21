@@ -1,5 +1,6 @@
 #include "executor/execute_engine.h"
 #include "glog/logging.h"
+#include <set>
 
 #define ENABLE_EXECUTE_DEBUG // todo:for debug
 
@@ -54,6 +55,9 @@ dberr_t ExecuteEngine::Execute(pSyntaxNode ast, ExecuteContext *context) {
   }
   return DB_FAILED;
 }
+
+// todo: maybe output messages to ExecuteContext instead of cout
+// todo: count time spent in each function
 
 dberr_t ExecuteEngine::ExecuteCreateDatabase(pSyntaxNode ast, ExecuteContext *context) {
   string dbName = ast->child_->val_;
@@ -117,15 +121,93 @@ dberr_t ExecuteEngine::ExecuteUseDatabase(pSyntaxNode ast, ExecuteContext *conte
 dberr_t ExecuteEngine::ExecuteShowTables(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteShowTables" << std::endl;
+  LOG(INFO) << "Showing Tables" << std::endl;
 #endif
-  return DB_FAILED;
+  vector<TableInfo *> tables;
+  dbs_[current_db_]->catalog_mgr_->GetTables(tables);
+  if (tables.empty()) {
+    cout << "No table exists." << endl;
+    return DB_SUCCESS;
+  }
+  for (auto &table : tables) {
+    cout << table->GetTableName() << endl;
+  }
+  return DB_SUCCESS;
 }
 
 dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *context) {
+  string tableName = ast->child_->val_;
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteCreateTable" << std::endl;
+  LOG(INFO) << "Create Table: " << tableName << std::endl;
 #endif
-  return DB_FAILED;
+  pSyntaxNode columnDefs = ast->child_->next_;
+  vector<Column *> columns;
+  set<string> columnNameSet;
+  uint32_t columnIndex = 0;
+  pSyntaxNode columnDef;
+  for (columnDef = columnDefs; columnDef->type_ == kNodeColumnDefinition; columnDef = columnDef->next_) {
+    bool isUnique = string(columnDef->val_) == "unique";
+    bool isNullable = false; 
+    // todo: support "nullable", test with the following query:
+      // create table t1(a int, b char(-5) unique not null, c float, primary key(a, c));
+      // create table t1(a int not null, b char(-5), c float, primary key(a, c));
+      // create table t1(a int, b char(-5) unique, c float, primary key(a, c));
+    string columnName = columnDef->child_->val_;
+    string columnType = columnDef->child_->next_->val_;
+    columnNameSet.insert(columnName);
+    if (columnType == "int") {
+      columns.push_back(new Column(columnName, TypeId::kTypeInt, columnIndex, isNullable, isUnique));
+    } else if (columnType == "float") {
+      columns.push_back(new Column(columnName, TypeId::kTypeInt, columnIndex, isNullable, isUnique));
+    } else if (columnType == "char") {
+      int length = stoi(columnDef->child_->next_->child_->val_);
+      columns.push_back(new Column(columnName, TypeId::kTypeInt, length, columnIndex, isNullable, isUnique));
+    // } else if (columnType == "varchar") { // todo: if varchar is supported
+    //   int length = stoi(columnDef->child_->next_->child_->val_);
+    //   columns.push_back(new Column(columnName, TypeId::KMaxTypeId, length, columnIndex, isNullable, isUnique));
+    } else {
+      cout << "Invalid column type: " << columnType << endl;
+      return DB_FAILED; // todo: maybe roolback
+    }
+    columnIndex++;
+  }
+  pSyntaxNode columnList;
+  for (columnList = columnDef; columnList->type_ == kNodeColumnList; columnList = columnList->next_) {
+    if (string(columnList->val_) == "primary keys") {
+      vector<string> primaryKeys;
+      for (pSyntaxNode identifier = columnList->child_; identifier->type_ == kNodeIdentifier; identifier = identifier->next_) {
+        // return failure if the key not exists (identifier->val_ is the keyName)
+        if (columnNameSet.find(identifier->val_) == columnNameSet.end()) {
+          cout << "Primary key " << identifier->val_ << " does not exist." << endl;
+          // DB_KEY_NOT_FOUND;
+          return DB_FAILED; // todo: maybe roolback
+        }
+        primaryKeys.push_back(identifier->val_);
+      }
+      if (primaryKeys.size() == 0) {
+        cout << "Empty primary key list." << endl;
+        return DB_FAILED; // todo: maybe roolback
+      }
+    }
+    // todo: maybe support "foreign keys" and "check"
+  }
+  // ! todo: add primaryKeys to the table info or table meta or somewhere else
+  dberr_t ret = DB_SUCCESS; //! todo: modify
+  // TableInfo* tf = TableInfo::Create(new SimpleMemHeap()); // ! todo: mod
+  // ret = dbs_[current_db_]->catalog_mgr_->CreateTable(tableName, new TableSchema(columns),
+  //                                                 nullptr, /* TableInfo */ tf);
+  // todo: ensure that ret is !DB_TABLE_ALREADY_EXIST!, DB_FAILED or DB_SUCCESS
+  if (ret == DB_TABLE_ALREADY_EXIST) {
+    cout << "Table " << tableName << " already exists." << endl;
+    return DB_FAILED;
+  } else if (ret == DB_FAILED) {
+    cout << "Create table failed." << endl;
+    return DB_FAILED;
+  }
+  assert(ret == DB_SUCCESS);
+  cout << "Table " << tableName << " created." << endl;
+  return DB_SUCCESS;
 }
 
 dberr_t ExecuteEngine::ExecuteDropTable(pSyntaxNode ast, ExecuteContext *context) {
