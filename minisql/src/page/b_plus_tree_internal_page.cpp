@@ -129,9 +129,9 @@ INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveHalfTo(BPlusTreeInternalPage *recipient,
                                                 BufferPoolManager *buffer_pool_manager) {
   int max = GetMaxSize();
-  int half_id = (max + 1)/2;
+  int half_id = max / 2 + 1;
   page_id_t recipient_id = recipient->GetPageId();
-  for(int i = half_id;i<max;i++){    //the recipient->array_[0].first should be invalid, but it is not important, we can store |k|p|k|p|,but don't use k(0)
+  for(int i = half_id;i<=max;i++){    //the recipient->array_[0].first should be invalid, but it is not important, we can store |k|p|k|p|,but don't use k(0)
     recipient->array_[i-half_id].first = array_[i].first;
     recipient->array_[i-half_id].second = array_[i].second;
     auto temp_page = buffer_pool_manager->FetchPage(array_[i].second);
@@ -259,14 +259,7 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveFirstToEndOf(BPlusTreeInternalPage *rec
   assert(child->GetParentPageId() == recipient->GetPageId());
   buffer_pool_manager->UnpinPage(child->GetPageId(), true);
 
-  //update relavent key & value pair in its parent page.
-  page = buffer_pool_manager->FetchPage(GetParentPageId());
-  BPlusTreeInternalPage *parent = reinterpret_cast<BPlusTreeInternalPage *>(page->GetData());
-  //! not sure ! depend on what is middle_key
-  parent->SetKeyAt(parent->ValueIndex(GetPageId()), array_[0].first);
-  //middle_key = array_[0].first;
-
-  buffer_pool_manager->UnpinPage(GetParentPageId(), true);
+  // the caller would update parent
 }
 
 /* Append an entry at the end.
@@ -302,13 +295,7 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveLastToFrontOf(BPlusTreeInternalPage *re
   assert(child->GetParentPageId() == recipient->GetPageId());
   buffer_pool_manager->UnpinPage(child->GetPageId(), true);
 
-  //update relavent key & value pair in recipient's parent page.
-  page = buffer_pool_manager->FetchPage(recipient->GetParentPageId());    //the recipient
-  BPlusTreeInternalPage *parent = reinterpret_cast<BPlusTreeInternalPage *>(page->GetData());   //get the recipient's parentpage
-  //! not sure ! depend on what is middle_key
-  parent->SetKeyAt(parent->ValueIndex(recipient->GetPageId()), array_[0].first);
-  //middle_key = array_[0].first;
-  buffer_pool_manager->UnpinPage(recipient->GetParentPageId(), true);
+  // the caller would update parent
 }
 
 /* Append an entry at the beginning.

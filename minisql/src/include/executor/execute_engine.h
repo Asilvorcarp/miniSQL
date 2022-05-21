@@ -18,8 +18,18 @@ extern "C" {
  * eg: transaction info, execute result...
  */
 struct ExecuteContext {
+  /**
+   * 执行完SQL语句后需要输出
+    * 执行所用的时间 在项目验收中将会用于考察索引效果
+    * 对查询语句 - 共查询到多少条记录
+    * 对插入/删除/更新语句 - 影响了多少条记录（参考MySQL输出）
+   **/
   bool flag_quit_{false};
   Transaction *txn_{nullptr};
+  // execute results:
+  time_t time_spent_{-1};
+  long select_record_num_{-1};
+  long update_record_num_{-1};
 };
 
 /**

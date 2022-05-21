@@ -3,6 +3,7 @@
 #include "glog/logging.h"
 #include "parser/syntax_tree_printer.h"
 #include "utils/tree_file_mgr.h"
+#include <fstream> // todo: for debug
 
 extern "C" {
 int yyparse(void);
@@ -10,6 +11,9 @@ FILE *yyin;
 #include "parser/minisql_lex.h"
 #include "parser/parser.h"
 }
+
+#define ENABLE_PARSER_DEBUG // todo:for debug
+// #define ENABLE_FILE_INPUT // todo:for debug, only support one line 
 
 void InitGoogleLog(char *argv) {
   FLAGS_logtostderr = true;
@@ -37,12 +41,22 @@ int main(int argc, char **argv) {
   // execute engine
   ExecuteEngine engine;
   // for print syntax tree
-  TreeFileManagers syntax_tree_file_mgr("syntax_tree_");
+  // string prefix = "stree_"; // for test
+  string prefix = "syntax_tree_";
+  TreeFileManagers syntax_tree_file_mgr(prefix);
   [[maybe_unused]] uint32_t syntax_tree_id = 0;
+  #ifdef ENABLE_FILE_INPUT
+    std::fstream cmdIn("./test.sql", std::ios::in); // get command from file
+  #endif
 
   while (1) {
-    // read from buffer
-    InputCommand(cmd, buf_size);
+    #ifdef ENABLE_FILE_INPUT
+      // read from file
+      cmdIn.getline(cmd, buf_size);
+    #else
+      // read from buffer
+      InputCommand(cmd, buf_size);
+    #endif
     // create buffer for sql input
     YY_BUFFER_STATE bp = yy_scan_string(cmd);
     if (bp == nullptr) {
@@ -62,11 +76,15 @@ int main(int argc, char **argv) {
       // error
       printf("%s\n", MinisqlParserGetErrorMessage());
     } else {
-#ifdef ENABLE_PARSER_DEBUG
-      printf("[INFO] Sql syntax parse ok!\n");
-      SyntaxTreePrinter printer(MinisqlGetParserRootNode());
-      printer.PrintTree(syntax_tree_file_mgr[syntax_tree_id++]);
-#endif
+      #ifdef ENABLE_PARSER_DEBUG
+        printf("[INFO] Sql syntax parse ok!\n");
+        SyntaxTreePrinter printer(MinisqlGetParserRootNode());
+        printer.PrintTree(syntax_tree_file_mgr[syntax_tree_id++]);
+        fstream fout(prefix+std::to_string(syntax_tree_id-1)+".txt",
+                     std::ios::app);
+        fout << endl << "The cmd is:" << endl << cmd << endl;
+        fout.close();
+      #endif
     }
 
     ExecuteContext context;
@@ -83,7 +101,9 @@ int main(int argc, char **argv) {
       printf("bye!\n");
       break;
     }
-
   }
+  #ifdef ENABLE_FILE_INPUT
+    cmdIn.close();
+  #endif
   return 0;
 }

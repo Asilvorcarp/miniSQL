@@ -70,6 +70,12 @@ public:
     out << "}" << std::endl;
   }
 
+  /**
+   * New method.
+   * Remember to UNPIN after using this method!
+   **/
+  Page* GetPageWithPid(page_id_t page_id);
+
 private:
   void StartNewTree(const KeyType &key, const ValueType &value);
 
