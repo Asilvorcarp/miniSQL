@@ -56,32 +56,62 @@ dberr_t ExecuteEngine::Execute(pSyntaxNode ast, ExecuteContext *context) {
 }
 
 dberr_t ExecuteEngine::ExecuteCreateDatabase(pSyntaxNode ast, ExecuteContext *context) {
+  string dbName = ast->child_->val_;
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteCreateDatabase" << std::endl;
+  LOG(INFO) << "Create DB: " << dbName << std::endl;
 #endif
-  
-  return DB_FAILED;
+  if (dbs_.find(dbName) != dbs_.end()) {
+    cout << "Database " << dbName << " already exists." << endl;
+    return DB_FAILED;
+  }
+  dbs_.insert(std::make_pair(dbName, new DBStorageEngine(dbName)));
+  cout << "Database " << dbName << " created." << endl;
+  return DB_SUCCESS;
 }
 
 dberr_t ExecuteEngine::ExecuteDropDatabase(pSyntaxNode ast, ExecuteContext *context) {
+  string dbName = ast->child_->val_;
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteDropDatabase" << std::endl;
+  LOG(INFO) << "Drop DB: " << dbName << std::endl;
 #endif
-  return DB_FAILED;
+  if (dbs_.find(dbName) == dbs_.end()) {
+    cout << "Database " << dbName << " does not exist." << endl;
+    return DB_FAILED;
+  }
+  delete dbs_[dbName];
+  cout << "Database " << dbName << " dropped." << endl;
+  return DB_SUCCESS;
 }
 
 dberr_t ExecuteEngine::ExecuteShowDatabases(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteShowDatabases" << std::endl;
+  LOG(INFO) << "Showing Databases" << std::endl;
 #endif
-  return DB_FAILED;
+  if (dbs_.empty()) {
+    cout << "No database exists." << endl;
+    return DB_SUCCESS;
+  }
+  for (auto &db : dbs_) {
+    cout << db.first << endl;
+  }
+  return DB_SUCCESS;
 }
 
 dberr_t ExecuteEngine::ExecuteUseDatabase(pSyntaxNode ast, ExecuteContext *context) {
+  string dbName = ast->child_->val_;
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteUseDatabase" << std::endl;
+  LOG(INFO) << "Use DB: " << dbName << std::endl;
 #endif
-  return DB_FAILED;
+  if (dbs_.find(dbName) == dbs_.end()) {
+    cout << "Database " << dbName << " does not exist." << endl;
+    return DB_FAILED;
+  }
+  current_db_ = dbName;
+  return DB_SUCCESS;
 }
 
 dberr_t ExecuteEngine::ExecuteShowTables(pSyntaxNode ast, ExecuteContext *context) {
