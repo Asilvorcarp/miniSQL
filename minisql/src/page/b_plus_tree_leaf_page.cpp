@@ -197,6 +197,7 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveAllTo(BPlusTreeLeafPage *recipient) {
   }
   recipient->SetNextPageId(GetNextPageId());  //update the next_page id
   recipient->IncreaseSize(GetSize());
+  SetNextPageId(INVALID_PAGE_ID);
   SetSize(0);
 }
 

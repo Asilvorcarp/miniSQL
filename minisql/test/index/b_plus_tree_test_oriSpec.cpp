@@ -14,20 +14,26 @@ TEST(BPlusTreeTests, SampleTest) {
   BPlusTree<int, int, BasicComparator<int>> tree(0, engine.bpm_, comparator, 4, 4);
   TreeFileManagers mgr("tree_");
   // Prepare data
-  const int n = 30;
+  const int n = 15;
   vector<int> keys;
   vector<int> values;
   vector<int> delete_seq;
   map<int, int> kv_map;
-  for (int i = 0; i < n; i++) {
-    keys.push_back(i);
-    values.push_back(i);
-    delete_seq.push_back(i);
-  }
-  // Shuffle data
-  ShuffleArray(keys);
-  ShuffleArray(values);
-  ShuffleArray(delete_seq);
+  // for (int i = 0; i < n; i++) {
+  //   keys.push_back(i);
+  //   values.push_back(i);
+  //   delete_seq.push_back(i);
+  // }
+  // // Shuffle data
+  // ShuffleArray(keys);
+  // ShuffleArray(values);
+  // ShuffleArray(delete_seq);
+    
+  keys = {6 ,8 ,9 ,0 ,14,4 ,13,1 ,3 ,10,11,12,5 ,7 ,2 };
+  values={14,10, 8, 0,13, 6, 9, 3, 4, 7,12,11, 2, 1, 5};
+  delete_seq={14,6,12,11,7,9,10,3,5,2,0,1,13,4,8};
+
+  LOG(INFO)<<"keys size "<<keys.size() <<" values size "<<values.size() <<" delete_seq size "<<delete_seq.size();
   // Map key value
   for (int i = 0; i < n; i++) {
     kv_map[keys[i]] = values[i];
@@ -54,6 +60,7 @@ TEST(BPlusTreeTests, SampleTest) {
   // Check valid
   ans.clear();
   for (int i = 0; i < n / 2; i++) {
+    LOG(INFO) << "delete_seq[i]: " << delete_seq[i];
     ASSERT_FALSE(tree.GetValue(delete_seq[i], ans));
   }
   for (int i = n / 2; i < n; i++) {
