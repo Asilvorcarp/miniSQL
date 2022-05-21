@@ -55,6 +55,14 @@ public:
   void MoveLastToFrontOf(BPlusTreeInternalPage *recipient, const KeyType &middle_key,
                          BufferPoolManager *buffer_pool_manager);
 
+  // new: for test purpose // todo: remove
+  friend std::ostream &operator<<(std::ostream &os, const BPlusTreeInternalPage &page) {
+    for (int i = 0; i < page.GetSize(); i++) {
+      os << page.array_[i].first << " " << page.array_[i].second << " ";
+      return os;
+    }
+  }
+
 private:
   void CopyNFrom(MappingType *items, int size, BufferPoolManager *buffer_pool_manager);
 

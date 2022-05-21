@@ -62,10 +62,13 @@ bool BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> &result
   { // not found
     return false;
   }
-  result.resize(1);
-  bool res = leaf->Lookup(key, result[0], comparator_);
+  ValueType value;
+  bool ifNoError = leaf->Lookup(key, value, comparator_);
+  // append to result vector
+  if (ifNoError)
+    result.push_back(value);
   buffer_pool_manager_->UnpinPage(leaf->GetPageId(), false);
-  return res;
+  return ifNoError;
 }
 
 /*****************************************************************************
@@ -166,8 +169,14 @@ N *BPLUSTREE_TYPE::Split(N *node) {
   }
 
   N *new_node = reinterpret_cast<N *>(new_page->GetData());
-  new_node->Init(new_page_id, node->GetParentPageId(), leaf_max_size_);
-  // todo: different max size for internal and leaf (internal_max_size_)
+  // different max size for internal and leaf (internal_max_size_)
+  int max_size;
+  if (node->IsLeafPage()) {
+    max_size = leaf_max_size_;
+  } else {
+    max_size = internal_max_size_;
+  }
+  new_node->Init(new_page_id, node->GetParentPageId(), max_size);
   node->MoveHalfTo(new_node, buffer_pool_manager_);
   
   return new_node;

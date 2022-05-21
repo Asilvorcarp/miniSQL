@@ -29,7 +29,7 @@ TEST(BPlusTreeTests, SampleTest) {
   }
   // Shuffle data
 
-  // todo: enable Shuffle
+  // // todo: enable Shuffle later
   // ShuffleArray(keys);
   // ShuffleArray(values);
   // ShuffleArray(delete_seq);
@@ -50,9 +50,10 @@ TEST(BPlusTreeTests, SampleTest) {
   // Search keys
   vector<int> ans;
   for (int i = 0; i < n; i++) {
-    tree.GetValue(i, ans);
-    LOG(INFO) << "key: " << i << ", kv_map[i]: " << kv_map[i] << ", ans[i]: " << ans[i] << endl;
-    ASSERT_EQ(kv_map[i], ans[i]);
+    tree.GetValue(keys[i], ans);
+    LOG(INFO)<< "size after "<<i<<" is "<<ans.size();
+    LOG(INFO) << "key: " << keys[i] << ", kv_map[i]: " << kv_map[keys[i]] << ", ans[i]: " << ans[i] << endl;
+    ASSERT_EQ(kv_map[keys[i]], ans[i]);
   }
   ASSERT_TRUE(tree.Check());
   // Delete half keys
