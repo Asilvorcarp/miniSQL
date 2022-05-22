@@ -210,11 +210,21 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
   return DB_SUCCESS;
 }
 
+//dxp
 dberr_t ExecuteEngine::ExecuteDropTable(pSyntaxNode ast, ExecuteContext *context) {
+  string tableName = ast->child_->val_;
 #ifdef ENABLE_EXECUTE_DEBUG
-  LOG(INFO) << "ExecuteDropTable" << std::endl;
+  LOG(INFO) << "ExecuteShowTables" << std::endl;
+  LOG(INFO) << "Drop Table:" << tableName << std::endl;
 #endif
-  return DB_FAILED;
+  if(dbs_[current_db_]->catalog_mgr_->DropTable(tableName)==DB_SUCCESS){
+    cout << "Table " << tableName << " dropped." << endl;
+    return DB_SUCCESS;
+  }
+  else{
+    cout << "Don't find " << tableName << "." << endl;
+    return DB_FAILED;
+  }
 }
 
 dberr_t ExecuteEngine::ExecuteShowIndexes(pSyntaxNode ast, ExecuteContext *context) {
