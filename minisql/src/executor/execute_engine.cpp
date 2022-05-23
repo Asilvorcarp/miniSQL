@@ -227,6 +227,7 @@ dberr_t ExecuteEngine::ExecuteDropTable(pSyntaxNode ast, ExecuteContext *context
   // }
   return dbs_[current_db_]->catalog_mgr_->DropTable(tableName);
 }
+
 //dxp
 dberr_t ExecuteEngine::ExecuteShowIndexes(pSyntaxNode ast, ExecuteContext *context) {
   string tableName = ast->child_->val_; //找表的名字，根据语法树。//SHOW INDEX FROM <表名>
@@ -244,6 +245,7 @@ dberr_t ExecuteEngine::ExecuteShowIndexes(pSyntaxNode ast, ExecuteContext *conte
   }
   return DB_SUCCESS;
 }
+
 //dxp
 dberr_t ExecuteEngine::ExecuteCreateIndex(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
@@ -252,7 +254,7 @@ dberr_t ExecuteEngine::ExecuteCreateIndex(pSyntaxNode ast, ExecuteContext *conte
   string indexName = ast->child_->val_; //找index的名字，根据语法树。
   string tableName = ast->child_->next_->val_; //找表的名字，根据语法树。
   pSyntaxNode temp_pointer = ast->child_->next_->next_->child_;
-  vector<std::string> index_keys;
+  vector<std::string> index_keys; //找生成索引的属性。
   while(temp_pointer){
     index_keys.push_back(temp_pointer->val_);
     temp_pointer = temp_pointer->next_;
@@ -262,8 +264,9 @@ dberr_t ExecuteEngine::ExecuteCreateIndex(pSyntaxNode ast, ExecuteContext *conte
   return dbs_[current_db_]->catalog_mgr_->CreateIndex(tableName,indexName,index_keys,nullptr,nuknow);
 }
 
-// 不知道语法，drop index 索引名；  与  drop index 索引名 on 表名；均无法生成语法树
+//dxp not finished  //好像只能drop index 索引名； 但调用需要知道表名；
 dberr_t ExecuteEngine::ExecuteDropIndex(pSyntaxNode ast, ExecuteContext *context) {
+  string indexName = ast->child_->val_; //根据语法树找index的名字。
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteDropIndex" << std::endl;
 #endif
