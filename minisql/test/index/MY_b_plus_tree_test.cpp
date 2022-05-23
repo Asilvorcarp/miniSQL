@@ -7,7 +7,7 @@
 
 static const std::string db_name = "bp_tree_insert_test.db";
 
-TEST(BPlusTreeTests, DISABLED_SampleTest) {
+TEST(BPlusTreeTests, MySampleTest) {
   // Init engine
   DBStorageEngine engine(db_name);
   BasicComparator<int> comparator;

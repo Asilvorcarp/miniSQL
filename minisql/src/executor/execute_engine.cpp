@@ -212,39 +212,62 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
 
 //dxp
 dberr_t ExecuteEngine::ExecuteDropTable(pSyntaxNode ast, ExecuteContext *context) {
-  string tableName = ast->child_->val_;
+  string tableName = ast->child_->val_;   //drop table <表名>
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteShowTables" << std::endl;
   LOG(INFO) << "Drop Table:" << tableName << std::endl;
 #endif
-  if(dbs_[current_db_]->catalog_mgr_->DropTable(tableName)==DB_SUCCESS){
-    cout << "Table " << tableName << " dropped." << endl;
-    return DB_SUCCESS;
-  }
-  else{
-    cout << "Don't find " << tableName << "." << endl;
-    return DB_FAILED;
-  }
+  // if(dbs_[current_db_]->catalog_mgr_->DropTable(tableName)==DB_SUCCESS){
+  //   cout << "Table " << tableName << " dropped." << endl;
+  //   return DB_SUCCESS;
+  // }
+  // else{
+  //   cout << "Don't find " << tableName << "." << endl;
+  //   return DB_TABLE_NOT_EXIST;
+  // }
+  return dbs_[current_db_]->catalog_mgr_->DropTable(tableName);
 }
-
+//dxp
 dberr_t ExecuteEngine::ExecuteShowIndexes(pSyntaxNode ast, ExecuteContext *context) {
+  string tableName = ast->child_->val_; //找表的名字，根据语法树。//SHOW INDEX FROM <表名>
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteShowIndexes" << std::endl;
 #endif
-  return DB_FAILED;
+  vector<IndexInfo *> indexes;
+  dbs_[current_db_]->catalog_mgr_->GetTableIndexes(tableName,indexes);
+  if(indexes.empty()){
+    cout << "No index exists." << std::endl;
+    return DB_SUCCESS;
+  }
+  for(vector<IndexInfo *>::iterator its= indexes.begin();its!=indexes.end();its++){
+    cout <<(*its)->GetIndexName()<<std::endl;
+  }
+  return DB_SUCCESS;
 }
-
+//dxp
 dberr_t ExecuteEngine::ExecuteCreateIndex(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteCreateIndex" << std::endl;
 #endif
-  return DB_FAILED;
+  string indexName = ast->child_->val_; //找index的名字，根据语法树。
+  string tableName = ast->child_->next_->val_; //找表的名字，根据语法树。
+  pSyntaxNode temp_pointer = ast->child_->next_->next_->child_;
+  vector<std::string> index_keys;
+  while(temp_pointer){
+    index_keys.push_back(temp_pointer->val_);
+    temp_pointer = temp_pointer->next_;
+  }
+  //not sure ！！参数列表中的Transaction *txn,IndexInfo *&index_info 不知道怎么传 
+  IndexInfo * nuknow;
+  return dbs_[current_db_]->catalog_mgr_->CreateIndex(tableName,indexName,index_keys,nullptr,nuknow);
 }
 
+// 不知道语法，drop index 索引名；  与  drop index 索引名 on 表名；均无法生成语法树
 dberr_t ExecuteEngine::ExecuteDropIndex(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteDropIndex" << std::endl;
 #endif
+  //not finished
   return DB_FAILED;
 }
 
