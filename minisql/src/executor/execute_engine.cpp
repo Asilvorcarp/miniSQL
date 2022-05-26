@@ -1,6 +1,5 @@
 #include "executor/execute_engine.h"
 #include "glog/logging.h"
-#include <set>
 
 #define ENABLE_EXECUTE_DEBUG // todo:for debug
 
@@ -56,7 +55,13 @@ dberr_t ExecuteEngine::Execute(pSyntaxNode ast, ExecuteContext *context) {
   return DB_FAILED;
 }
 
-// todo: maybe output messages to ExecuteContext instead of cout
+// ExecuteContext not used, output directly to stdout
+  /** // todo
+   * 执行完SQL语句后需要输出
+    * 执行所用的时间 在项目验收中将会用于考察索引效果
+    * 对查询语句 - 共查询到多少条记录
+    * 对插入/删除/更新语句 - 影响了多少条记录（参考MySQL输出）
+   **/
 // todo: count time spent in each function
 
 dberr_t ExecuteEngine::ExecuteCreateDatabase(pSyntaxNode ast, ExecuteContext *context) {
@@ -142,30 +147,25 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
   LOG(INFO) << "ExecuteCreateTable" << std::endl;
   LOG(INFO) << "Create Table: " << tableName << std::endl;
 #endif
-  // pSyntaxNode columnDefs = ast->child_->next_;//原来的
-  pSyntaxNode columnDefs = ast->child_->next_->child_;//dxp改
+  pSyntaxNode columnDefList = ast->child_->next_; // kNodeColumnDefinitionList
   vector<Column *> columns;
-  set<string> columnNameSet;
+  map<string, uint32_t> columnNameToIndex;
   uint32_t columnIndex = 0;
   pSyntaxNode columnDef;
-  for (columnDef = columnDefs; columnDef->type_ == kNodeColumnDefinition; columnDef = columnDef->next_) {
+  for (columnDef = columnDefList->child_; columnDef->type_ == kNodeColumnDefinition; columnDef = columnDef->next_) {
     bool isUnique = string(columnDef->val_) == "unique";
-    bool isNullable = false; 
-    // todo: support "nullable", test with the following query:
-      // create table t1(a int, b char(-5) unique not null, c float, primary key(a, c));
-      // create table t1(a int not null, b char(-5), c float, primary key(a, c));
-      // create table t1(a int, b char(-5) unique, c float, primary key(a, c));
+    bool isNullable = true; // "not null" can only be specified by "primary key" later
     string columnName = columnDef->child_->val_;
     string columnType = columnDef->child_->next_->val_;
-    columnNameSet.insert(columnName);
+    columnNameToIndex.insert(std::make_pair(columnName, columnIndex));
     if (columnType == "int") {
       columns.push_back(new Column(columnName, TypeId::kTypeInt, columnIndex, isNullable, isUnique));
     } else if (columnType == "float") {
-      columns.push_back(new Column(columnName, TypeId::kTypeInt, columnIndex, isNullable, isUnique));
+      columns.push_back(new Column(columnName, TypeId::kTypeFloat, columnIndex, isNullable, isUnique));
     } else if (columnType == "char") {
       int length = stoi(columnDef->child_->next_->child_->val_);
-      columns.push_back(new Column(columnName, TypeId::kTypeInt, length, columnIndex, isNullable, isUnique));
-    // } else if (columnType == "varchar") { //// if varchar is supported
+      columns.push_back(new Column(columnName, TypeId::kTypeChar, length, columnIndex, isNullable, isUnique));
+    // } else if (columnType == "varchar") { // if only varchar is supported
     //   int length = stoi(columnDef->child_->next_->child_->val_);
     //   columns.push_back(new Column(columnName, TypeId::KMaxTypeId, length, columnIndex, isNullable, isUnique));
     } else {
@@ -173,32 +173,41 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
       return DB_FAILED; 
     }
     columnIndex++;
-  }
+  } 
+  // columnDef is now after all column definition (now: NULL or columnList)
   pSyntaxNode columnList;
+  vector<uint32_t> primaryKeyIndexs = {};
   for (columnList = columnDef; columnList->type_ == kNodeColumnList; columnList = columnList->next_) {
+    // get primaryKeyIndexs
     if (string(columnList->val_) == "primary keys") {
-      vector<string> primaryKeys;
       for (pSyntaxNode identifier = columnList->child_; identifier->type_ == kNodeIdentifier; identifier = identifier->next_) {
-        // return failure if the key not exists (identifier->val_ is the keyName)
-        if (columnNameSet.find(identifier->val_) == columnNameSet.end()) {
-          cout << "Primary key " << identifier->val_ << " does not exist." << endl;
-          // DB_KEY_NOT_FOUND;
-          return DB_FAILED; 
+        // try to find the column in the column list
+        try
+        {
+          uint32_t indexInColumns = columnNameToIndex.at(string(identifier->val_));
+          // found: mark "unique & not null" for the primary key
+          primaryKeyIndexs.push_back(indexInColumns);
         }
-        primaryKeys.push_back(identifier->val_);
+        catch(const std::out_of_range& e)
+        { // not found
+          cout << "Primary key " << string(identifier->val_) << " does not exist." << endl;
+          return DB_FAILED; // DB_KEY_NOT_FOUND;
+        }
       }
-      if (primaryKeys.size() == 0) {
+      if (primaryKeyIndexs.size() == 0) {
         cout << "Empty primary key list." << endl;
         return DB_FAILED; 
       }
+    }else{
+      // not support "foreign keys" and "check"
+      LOG(ERROR) << "Unknown column list type: " << columnList->val_ << endl;
+      return DB_FAILED; 
     }
-    // todo: maybe support "foreign keys" and "check"
   }
-  // ! todo: add primaryKeys to the table info or table meta or somewhere else
-  dberr_t ret = DB_SUCCESS; //! todo: modify
-  // TableInfo* tf = TableInfo::Create(new SimpleMemHeap()); // ! todo: mod
-  // ret = dbs_[current_db_]->catalog_mgr_->CreateTable(tableName, new TableSchema(columns),
-  //                                                 nullptr, /* TableInfo */ tf);
+  TableSchema* table_schema = new TableSchema(columns); // input of CreateTable
+  TableInfo* table_info = nullptr; // output of CreateTable
+  dberr_t ret = dbs_[current_db_]->catalog_mgr_->CreateTable(tableName, table_schema,
+                                                  nullptr, table_info, primaryKeyIndexs);
   // todo: ensure that ret is !DB_TABLE_ALREADY_EXIST!, DB_FAILED or DB_SUCCESS
   if (ret == DB_TABLE_ALREADY_EXIST) {
     cout << "Table " << tableName << " already exists." << endl;
@@ -219,14 +228,14 @@ dberr_t ExecuteEngine::ExecuteDropTable(pSyntaxNode ast, ExecuteContext *context
   LOG(INFO) << "ExecuteShowTables" << std::endl;
   LOG(INFO) << "Drop Table:" << tableName << std::endl;
 #endif
-  // if(dbs_[current_db_]->catalog_mgr_->DropTable(tableName)==DB_SUCCESS){
-  //   cout << "Table " << tableName << " dropped." << endl;
-  //   return DB_SUCCESS;
-  // }
-  // else{
-  //   cout << "Don't find " << tableName << "." << endl;
-  //   return DB_TABLE_NOT_EXIST;
-  // }
+  if(dbs_[current_db_]->catalog_mgr_->DropTable(tableName)==DB_SUCCESS){
+    cout << "Table " << tableName << " dropped." << endl;
+    return DB_SUCCESS;
+  }
+  else{
+    cout << "Don't find " << tableName << "." << endl;
+    return DB_TABLE_NOT_EXIST;
+  }
   return dbs_[current_db_]->catalog_mgr_->DropTable(tableName);
 }
 
@@ -308,27 +317,35 @@ bool GetResultOfNode(const pSyntaxNode &ast /*, Row row */ ){
     case kNodeCompareOperator: /** operators '=', '<>', '<=', '>=', '<', '>', is, not */
       if (string(ast->val_) == "="){
         //todo /* code */
+        return false;
       }else if (string(ast->val_) == "<>"){
         //todo /* code */
+        return false;
       }else if (string(ast->val_) == "<="){
         //todo /* code */
+        return false;
       }else if (string(ast->val_) == "<>"){
         //todo /* code */
+        return false;
       }else if (string(ast->val_) == ">="){
         //todo /* code */
+        return false;
       }else if (string(ast->val_) == "<"){
         //todo /* code */
+        return false;
       }else if (string(ast->val_) == ">"){
         //todo /* code */
+        return false;
       }else if (string(ast->val_) == "is"){
         //todo /* code */
+        return false;
       }else if (string(ast->val_) == "not"){
         //todo /* code */
+        return false;
       }else{
         LOG(ERROR) << "Unknown kNodeCompareOperator val: " << string(ast->val_) << endl;
         return false;
       }
-      break;
     default:
       LOG(ERROR) << "Unknown node type: " << ast->type_ << endl;
       return false;
@@ -344,12 +361,13 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
   pSyntaxNode selectNode = ast->child_; //things after 'select', like '*', 'name, id'
   pSyntaxNode fromNode = selectNode->next_; //things after 'from', like 't1'
   pSyntaxNode whereNode = fromNode->next_; //things after 'where', like 'name = a' (may be null)
+  bool if_select_all = false;
   if (selectNode->type_ == kNodeAllColumns) 
   {// select * (all columns)
-    // todo
+    if_select_all = true;
   }else{// select <columns>
     assert(selectNode->type_ == kNodeColumnList);
-    // assert(selectNode->val_ == "select columns");
+    assert(string(selectNode->val_) == "select columns");
     vector<string> selectColumns = GetColumnList(selectNode);
   }
   string fromTable = fromNode->val_; // from table name

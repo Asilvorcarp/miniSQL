@@ -76,7 +76,9 @@ public:
 
   ~CatalogManager();
 
-  dberr_t CreateTable(const std::string &table_name, TableSchema *schema, Transaction *txn, TableInfo *&table_info);
+  // new: added primaryKeyIndexs (default: empty)
+  dberr_t CreateTable(const std::string &table_name, TableSchema *schema, Transaction *txn, TableInfo *&table_info, 
+                      vector<uint32_t> primaryKeyIndexs = {});
 
   dberr_t GetTable(const std::string &table_name, TableInfo *&table_info);
 
