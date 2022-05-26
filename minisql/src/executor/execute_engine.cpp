@@ -141,6 +141,7 @@ dberr_t ExecuteEngine::ExecuteShowTables(pSyntaxNode ast, ExecuteContext *contex
   return DB_SUCCESS;
 }
 
+// yj: done
 dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *context) {
   string tableName = ast->child_->val_;
 #ifdef ENABLE_EXECUTE_DEBUG
@@ -285,8 +286,8 @@ dberr_t ExecuteEngine::ExecuteDropIndex(pSyntaxNode ast, ExecuteContext *context
   return DB_FAILED;
 }
 
-// new
-vector<string> GetColumnList(const pSyntaxNode &columnListNode) {
+// new: to get child value list of a node
+vector<string> GetChildValues(const pSyntaxNode &columnListNode) {
   vector<string> columnList;
   pSyntaxNode temp_pointer = columnListNode->child_;
   while (temp_pointer) {
@@ -296,52 +297,57 @@ vector<string> GetColumnList(const pSyntaxNode &columnListNode) {
   return columnList;
 }
 
-bool GetResultOfNode(const pSyntaxNode &ast /*, Row row */ ){
+// new: to get the result of a node
+bool GetResultOfNode(const pSyntaxNode &ast, const Row &row){
   if (ast == nullptr) {
     LOG(ERROR) << "Unexpected nullptr." << endl;
     return false;
   }
   switch (ast->type_) {
     case kNodeConditions: // where
-      return GetResultOfNode(ast->child_);
+      return GetResultOfNode(ast->child_, row);
     case kNodeConnector:
       switch (ast->val_[0]) {
         case 'a': // & and    // todo: test capital AND
-          return GetResultOfNode(ast->child_) && GetResultOfNode(ast->next_);
+          return GetResultOfNode(ast->child_, row) && GetResultOfNode(ast->next_, row);
         case 'o': // | or
-          return GetResultOfNode(ast->child_) || GetResultOfNode(ast->next_);
+          return GetResultOfNode(ast->child_, row) || GetResultOfNode(ast->next_, row);
         default:
           LOG(ERROR) << "Unknown connector: " << string(ast->val_) << endl;
           return false;
       }
     case kNodeCompareOperator: /** operators '=', '<>', '<=', '>=', '<', '>', is, not */
+
+      // refer -> table_heap_test.cpp
+
       if (string(ast->val_) == "="){
+        // ASSERT_EQ(CmpBool::kTrue, fields[i]->CompareEquals(fields[i]));
         //todo /* code */
-        return false;
+        return true;
       }else if (string(ast->val_) == "<>"){
         //todo /* code */
-        return false;
+        return true;
       }else if (string(ast->val_) == "<="){
         //todo /* code */
-        return false;
+        return true;
       }else if (string(ast->val_) == "<>"){
         //todo /* code */
-        return false;
+        return true;
       }else if (string(ast->val_) == ">="){
         //todo /* code */
-        return false;
+        return true;
       }else if (string(ast->val_) == "<"){
         //todo /* code */
-        return false;
+        return true;
       }else if (string(ast->val_) == ">"){
         //todo /* code */
-        return false;
+        return true;
       }else if (string(ast->val_) == "is"){
         //todo /* code */
-        return false;
+        return true;
       }else if (string(ast->val_) == "not"){
         //todo /* code */
-        return false;
+        return true;
       }else{
         LOG(ERROR) << "Unknown kNodeCompareOperator val: " << string(ast->val_) << endl;
         return false;
@@ -353,7 +359,7 @@ bool GetResultOfNode(const pSyntaxNode &ast /*, Row row */ ){
   return false;
 }
 
-// todo(yj): doing
+// todo(yj): almost done
 dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteSelect" << std::endl;
@@ -361,51 +367,82 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
   pSyntaxNode selectNode = ast->child_; //things after 'select', like '*', 'name, id'
   pSyntaxNode fromNode = selectNode->next_; //things after 'from', like 't1'
   pSyntaxNode whereNode = fromNode->next_; //things after 'where', like 'name = a' (may be null)
+
+  // 1. from
+  string fromTable = fromNode->val_; // from table name
+  TableInfo *table_info = nullptr;
+  dberr_t ret = dbs_[current_db_]->catalog_mgr_->GetTable(fromTable, table_info);
+  if(ret == DB_TABLE_NOT_EXIST){
+    cout << "Table not exist." << endl;
+    return DB_FAILED;
+  }
+  assert(ret == DB_SUCCESS);
+
+  // get the columns to be selected
+  vector<string> selectColumns; // select column names
+  vector<uint32_t> selectColumnIndexs;
   bool if_select_all = false;
   if (selectNode->type_ == kNodeAllColumns) 
   {// select * (all columns)
     if_select_all = true;
-  }else{// select <columns>
+  }else{// select columns
     assert(selectNode->type_ == kNodeColumnList);
     assert(string(selectNode->val_) == "select columns");
-    vector<string> selectColumns = GetColumnList(selectNode);
+    selectColumns = GetChildValues(selectNode);
+    for (auto &columnName: selectColumns){
+      uint32_t index;
+      dberr_t ret = table_info->GetSchema()->GetColumnIndex(columnName, index);
+      if (ret == DB_COLUMN_NAME_NOT_EXIST){
+        cout << "Select column " << columnName << " not exist." << endl;
+        return DB_FAILED;
+      }else{
+        assert(ret == DB_SUCCESS);
+        selectColumnIndexs.push_back(index);
+      }
+    }
   }
-  string fromTable = fromNode->val_; // from table name
-  // get result of where clause
-  if (GetResultOfNode(whereNode /*, Row row */)) {
-    // todo: do select
-  }
-  
-  // SimpleMemHeap heap;
-  // /** Stage 2: Testing simple operation */
-  // auto db_01 = new DBStorageEngine(db_file_name, true);
-  // auto &catalog_01 = db_01->catalog_mgr_;
-  // TableInfo *table_info = nullptr;
-  // ASSERT_EQ(DB_TABLE_NOT_EXIST, catalog_01->GetTable("table-1", table_info));
-  // std::vector<Column *> columns = {
-  //         ALLOC_COLUMN(heap)("id", TypeId::kTypeInt, 0, false, false),
-  //         ALLOC_COLUMN(heap)("name", TypeId::kTypeChar, 64, 1, true, false),
-  //         ALLOC_COLUMN(heap)("account", TypeId::kTypeFloat, 2, true, false)
-  // };
-  // auto schema = std::make_shared<Schema>(columns);
-  // Transaction txn;
-  // catalog_01->CreateTable("table-1", schema.get(), &txn, table_info);
-  // ASSERT_TRUE(table_info != nullptr);
-  // TableInfo *table_info_02 = nullptr;
-  // ASSERT_EQ(DB_SUCCESS, catalog_01->GetTable("table-1", table_info_02));
-  // ASSERT_EQ(table_info, table_info_02);
-  // auto *table_heap = table_info->GetTableHeap();
-  // ASSERT_TRUE(table_heap != nullptr);
-  // delete db_01;
-  // /** Stage 2: Testing catalog loading */
-  // auto db_02 = new DBStorageEngine(db_file_name, false);
-  // auto &catalog_02 = db_02->catalog_mgr_;
-  // TableInfo *table_info_03 = nullptr;
-  // ASSERT_EQ(DB_TABLE_NOT_EXIST, catalog_02->GetTable("table-2", table_info_03));
-  // ASSERT_EQ(DB_SUCCESS, catalog_02->GetTable("table-1", table_info_03));
-  // delete db_02;
 
-  return DB_FAILED;
+  // traverse the table
+  TableIterator iter = table_info->GetTableHeap()->Begin(nullptr);
+  TableIterator iter_end = table_info->GetTableHeap()->End();
+  int select_count = 0;
+  vector<vector<string>> select_result;
+  for (; iter!=iter_end; iter++) {
+    Row row = *iter;
+    // 2. where
+    if (GetResultOfNode(whereNode, row)) {
+      // 3. select
+      vector<string> result_line;
+      std::vector<Field *> &fields = row.GetFields();
+      if (if_select_all){
+        for (size_t i = 0; i < fields.size(); i++) {
+          result_line.push_back(fields[i]->GetData());
+        }
+      }else{
+        for (auto &i : selectColumnIndexs){
+          result_line.push_back(fields[i]->GetData());
+        }
+      }
+      select_result.push_back(result_line);
+      select_count++;
+    }
+  }
+  cout << "Select count: " << select_count << endl;
+
+  // todo print the result
+  uint32_t temp_index = 0;
+  for (auto &line : select_result)
+  {
+    cout << temp_index << "\t";
+    for (auto &field : line)
+    {
+      // todo: maybe add a operator<< to Type
+      cout << field << endl; // todo mod
+    }
+    temp_index++;
+  }
+
+  return DB_SUCCESS;
 }
 
 
@@ -413,6 +450,7 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteInsert" << std::endl;
 #endif
+  // remember things about primary key
   return DB_FAILED;
 }
 
@@ -420,6 +458,8 @@ dberr_t ExecuteEngine::ExecuteDelete(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteDelete" << std::endl;
 #endif
+  // ASSERT_TRUE(table_page.MarkDelete(row.GetRowId(), nullptr, nullptr, nullptr));
+  // table_page.ApplyDelete(row.GetRowId(), nullptr, nullptr);
   return DB_FAILED;
 }
 
