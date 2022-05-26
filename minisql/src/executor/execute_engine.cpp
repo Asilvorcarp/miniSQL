@@ -430,12 +430,18 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
   cout << "Select count: " << select_count << endl;
 
   // todo print the result
+
+  // print the first line (column names)
+  cout << "\t";
+  for (auto &columnName : selectColumns){
+    cout << columnName << "\t";
+  }
+  cout << endl;
+  // print the results
   uint32_t temp_index = 0;
-  for (auto &line : select_result)
-  {
+  for (auto &line : select_result){
     cout << temp_index << "\t";
-    for (auto &field : line)
-    {
+    for (auto &field : line){
       // todo: maybe add a operator<< to Type
       cout << field << endl; // todo mod
     }
