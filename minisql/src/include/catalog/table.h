@@ -76,6 +76,8 @@ public:
 
   inline std::string GetTableName() const { return table_meta_->table_name_; }
 
+  inline vector<uint32_t> GetPrimaryKeyIndexs() const { return table_meta_->primaryKeyIndexs_; }
+
   inline Schema *GetSchema() const { return table_meta_->schema_; }
 
   inline page_id_t GetRootPageId() const { return table_meta_->root_page_id_; }

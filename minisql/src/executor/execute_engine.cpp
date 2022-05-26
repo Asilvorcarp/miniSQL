@@ -165,9 +165,9 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
     } else if (columnType == "char") {
       int length = stoi(columnDef->child_->next_->child_->val_);
       columns.push_back(new Column(columnName, TypeId::kTypeChar, length, columnIndex, isNullable, isUnique));
-    // } else if (columnType == "varchar") { // if only varchar is supported
-    //   int length = stoi(columnDef->child_->next_->child_->val_);
-    //   columns.push_back(new Column(columnName, TypeId::KMaxTypeId, length, columnIndex, isNullable, isUnique));
+    //// } else if (columnType == "varchar") { // if only varchar is supported
+    ////   int length = stoi(columnDef->child_->next_->child_->val_);
+    ////   columns.push_back(new Column(columnName, TypeId::KMaxTypeId, length, columnIndex, isNullable, isUnique));
     } else {
       cout << "Invalid column type: " << columnType << endl;
       return DB_FAILED; 
