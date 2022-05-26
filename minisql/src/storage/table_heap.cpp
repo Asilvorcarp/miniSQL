@@ -8,6 +8,7 @@ bool TableHeap::InsertTuple(Row &row, Transaction *txn) {
     page->Init(i,INVALID_PAGE_ID,log_manager_,txn);
   }
   if(page->InsertTuple(row,schema_,txn,lock_manager_,log_manager_)){
+    buffer_pool_manager_->UnpinPage(page->GetTablePageId(),true);
     return true;
   }
   int lastI=i;
@@ -15,17 +16,21 @@ bool TableHeap::InsertTuple(Row &row, Transaction *txn) {
   while(i!=INVALID_PAGE_ID){
     auto page=reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(i));
     if(page->InsertTuple(row,schema_,txn,lock_manager_,log_manager_)){
+      buffer_pool_manager_->UnpinPage(page->GetTablePageId(),true);
       return true;
     }
     lastI=i;
     i=page->GetNextPageId();
+    buffer_pool_manager_->UnpinPage(page->GetTablePageId(),false);
   }
   //need to allocate a new page,i=invalid page id
   page=reinterpret_cast<TablePage *>(buffer_pool_manager_->NewPage(i));
   page->Init(i,lastI,log_manager_,txn);
   if(page->InsertTuple(row,schema_,txn,lock_manager_,log_manager_)){
+    buffer_pool_manager_->UnpinPage(page->GetTablePageId(),true);
     return true;
   }
+  buffer_pool_manager_->UnpinPage(page->GetTablePageId(),true);
   return false;
 }
 
@@ -53,9 +58,9 @@ bool TableHeap::UpdateTuple(const Row &row, const RowId &rid, Transaction *txn) 
   Row newRow=row;
   int type=page->UpdateTuple(row,oldRow,schema_,txn,lock_manager_,log_manager_);//get the update result
   switch(type){
-    case 1:return false;
-    case 2:return false;//invalid update
-    case 0:return true;
+    case 1:buffer_pool_manager_->UnpinPage(page->GetTablePageId(), true);return false;
+    case 2:buffer_pool_manager_->UnpinPage(page->GetTablePageId(), true);return false;//invalid update
+    case 0:buffer_pool_manager_->UnpinPage(page->GetTablePageId(), true);return true;
     //not enough space for update
     case 3:if(page->MarkDelete(rid,txn,lock_manager_,log_manager_)){
       TablePage *oldPage=page;
@@ -65,10 +70,12 @@ bool TableHeap::UpdateTuple(const Row &row, const RowId &rid, Transaction *txn) 
         page=reinterpret_cast<TablePage *>(buffer_pool_manager_ ->FetchPage(i));
         if(page->InsertTuple(newRow,schema_,txn,lock_manager_,log_manager_)){
           oldPage->ApplyDelete(rid,txn,log_manager_);
+          buffer_pool_manager_->UnpinPage(page->GetTablePageId(), true);
           return true;
         }else{
           preI=i;
           i=page->GetNextPageId();
+          buffer_pool_manager_->UnpinPage(page->GetTablePageId(), false);
         }
       }
       //create a new page
@@ -76,13 +83,17 @@ bool TableHeap::UpdateTuple(const Row &row, const RowId &rid, Transaction *txn) 
       page->Init(preI,i,log_manager_,txn);
       if(page->InsertTuple(newRow,schema_,txn,lock_manager_,log_manager_)){
           oldPage->ApplyDelete(rid,txn,log_manager_);
+          buffer_pool_manager_->UnpinPage(page->GetTablePageId(), true);
           return true;
       }
+      buffer_pool_manager_->UnpinPage(page->GetTablePageId(), true);
       return false;
     }else{
+      buffer_pool_manager_->UnpinPage(page->GetTablePageId(), false);
       return false;
     }
   }
+  buffer_pool_manager_->UnpinPage(page->GetTablePageId(), false);
   return false;
 }
 
@@ -91,6 +102,7 @@ void TableHeap::ApplyDelete(const RowId &rid, Transaction *txn) {
   // Step2: Delete the tuple from the page.
   auto page=reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(rid.GetPageId()));
   page->ApplyDelete(rid,txn,log_manager_);
+  buffer_pool_manager_->UnpinPage(page->GetTablePageId(), true);
 }
 
 void TableHeap::RollbackDelete(const RowId &rid, Transaction *txn) {
@@ -115,7 +127,13 @@ void TableHeap::FreeHeap() {
 
 bool TableHeap::GetTuple(Row *row, Transaction *txn) {
   auto page=reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(row->GetRowId().GetPageId()));
-  return page->GetTuple(row,schema_,txn,lock_manager_);
+  if(page->GetTuple(row,schema_,txn,lock_manager_)){
+    buffer_pool_manager_->UnpinPage(page->GetTablePageId(), true);
+    return true;
+  }else{
+    buffer_pool_manager_->UnpinPage(page->GetTablePageId(), false);
+    return false;
+  }
 }
 
 TableIterator TableHeap::Begin(Transaction *txn) {

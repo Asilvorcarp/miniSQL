@@ -53,6 +53,11 @@ public:
 
 private:
   explicit CatalogMeta();
+  
+  CatalogMeta(std::map<table_id_t, page_id_t> a,std::map<index_id_t, page_id_t> b){
+    table_meta_pages_=a;
+    index_meta_pages_=b;
+  }
 
 private:
   static constexpr uint32_t CATALOG_METADATA_MAGIC_NUM = 89849;

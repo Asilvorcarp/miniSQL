@@ -102,6 +102,7 @@ private:
           schema_(schema),
           log_manager_(log_manager),
           lock_manager_(lock_manager) {
+    this->first_page_id_=0;
     //ASSERT(false, "Not implemented yet.");
   };
 

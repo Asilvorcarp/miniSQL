@@ -20,7 +20,6 @@ DiskManager::DiskManager(const std::string &db_file) : file_name_(db_file) {
       throw std::exception();
     }
   }
-  
   ReadPhysicalPage(META_PAGE_ID, meta_data_);
 }
 

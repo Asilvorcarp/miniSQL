@@ -165,12 +165,12 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
     } else if (columnType == "char") {
       int length = stoi(columnDef->child_->next_->child_->val_);
       columns.push_back(new Column(columnName, TypeId::kTypeInt, length, columnIndex, isNullable, isUnique));
-    // } else if (columnType == "varchar") { // todo: if varchar is supported
+    // } else if (columnType == "varchar") { //// if varchar is supported
     //   int length = stoi(columnDef->child_->next_->child_->val_);
     //   columns.push_back(new Column(columnName, TypeId::KMaxTypeId, length, columnIndex, isNullable, isUnique));
     } else {
       cout << "Invalid column type: " << columnType << endl;
-      return DB_FAILED; // todo: maybe roolback
+      return DB_FAILED; 
     }
     columnIndex++;
   }
@@ -183,13 +183,13 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
         if (columnNameSet.find(identifier->val_) == columnNameSet.end()) {
           cout << "Primary key " << identifier->val_ << " does not exist." << endl;
           // DB_KEY_NOT_FOUND;
-          return DB_FAILED; // todo: maybe roolback
+          return DB_FAILED; 
         }
         primaryKeys.push_back(identifier->val_);
       }
       if (primaryKeys.size() == 0) {
         cout << "Empty primary key list." << endl;
-        return DB_FAILED; // todo: maybe roolback
+        return DB_FAILED; 
       }
     }
     // todo: maybe support "foreign keys" and "check"
@@ -276,60 +276,119 @@ dberr_t ExecuteEngine::ExecuteDropIndex(pSyntaxNode ast, ExecuteContext *context
   return DB_FAILED;
 }
 
-//dxp
+// new
+vector<string> GetColumnList(const pSyntaxNode &columnListNode) {
+  vector<string> columnList;
+  pSyntaxNode temp_pointer = columnListNode->child_;
+  while (temp_pointer) {
+    columnList.push_back(string(temp_pointer->val_));
+    temp_pointer = temp_pointer->next_;
+  }
+  return columnList;
+}
+
+bool GetResultOfNode(const pSyntaxNode &ast /*, Row row */ ){
+  if (ast == nullptr) {
+    LOG(ERROR) << "Unexpected nullptr." << endl;
+    return false;
+  }
+  switch (ast->type_) {
+    case kNodeConditions: // where
+      return GetResultOfNode(ast->child_);
+    case kNodeConnector:
+      switch (ast->val_[0]) {
+        case 'a': // & and    // todo: test capital AND
+          return GetResultOfNode(ast->child_) && GetResultOfNode(ast->next_);
+        case 'o': // | or
+          return GetResultOfNode(ast->child_) || GetResultOfNode(ast->next_);
+        default:
+          LOG(ERROR) << "Unknown connector: " << string(ast->val_) << endl;
+          return false;
+      }
+    case kNodeCompareOperator: /** operators '=', '<>', '<=', '>=', '<', '>', is, not */
+      if (string(ast->val_) == "="){
+        //todo /* code */
+      }else if (string(ast->val_) == "<>"){
+        //todo /* code */
+      }else if (string(ast->val_) == "<="){
+        //todo /* code */
+      }else if (string(ast->val_) == "<>"){
+        //todo /* code */
+      }else if (string(ast->val_) == ">="){
+        //todo /* code */
+      }else if (string(ast->val_) == "<"){
+        //todo /* code */
+      }else if (string(ast->val_) == ">"){
+        //todo /* code */
+      }else if (string(ast->val_) == "is"){
+        //todo /* code */
+      }else if (string(ast->val_) == "not"){
+        //todo /* code */
+      }else{
+        LOG(ERROR) << "Unknown kNodeCompareOperator val: " << string(ast->val_) << endl;
+        return false;
+      }
+    default:
+      LOG(ERROR) << "Unknown node type: " << ast->type_ << endl;
+      return false;
+  }
+  return false;
+}
+
+// todo(yj): doing
 dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteSelect" << std::endl;
 #endif
-  pSyntaxNode select_attributes_head = ast->child_->child_;
-  vector<string> select_attributes_name;
-  //得到所要投影的属性
-  while(select_attributes_head->type_==kNodeIdentifier){
-    select_attributes_name.push_back(select_attributes_head->val_);
-    select_attributes_head = select_attributes_head->next_;
+  pSyntaxNode selectNode = ast->child_; //things after 'select', like '*', 'name, id'
+  pSyntaxNode fromNode = selectNode->next_; //things after 'from', like 't1'
+  pSyntaxNode whereNode = fromNode->next_; //things after 'where', like 'name = a' (may be null)
+  if (selectNode->type_ == kNodeAllColumns) 
+  {// select * (all columns)
+    //todo
+  }else{// select <columns>
+    assert(selectNode->type_ == kNodeColumnList);
+    // assert(selectNode->val_ == "select columns");
+    vector<string> selectColumns = GetColumnList(selectNode);
   }
-  string tableName = ast->child_->next_->val_; //找表的名字。
+  string fromTable = fromNode->val_; // from table name
+  // get result of where clause
+  if (GetResultOfNode(whereNode /*, Row row */)) {
+    // todo: do select
+  }
   
-  pSyntaxNode conditions = ast->child_; //conditions为所有where条件的头结点
-  while(1){
-    if(conditions->type_==kNodeConditions){
-      break;
-    }
-    conditions = conditions->next_; //为了处理from多个表
-  }
-  //仅支持or与and
-  pSyntaxNode first_level_condition = conditions->child_;
-  if(first_level_condition==nullptr){   //无where约束
-    TableInfo* table_show = nullptr;
-    dbs_[current_db_]->catalog_mgr_->GetTable(tableName,table_show);
-    page_id_t root_page =  table_show->GetRootPageId(); //得到该表的page
-
-    // Page *page = dbs_[current_db_]->bpm_->FetchPage(root_page);
-    // TablePage* table_page = reinterpret_cast<TablePage *>(page->GetData());
-    // Row* temp_row = nullptr;
-    // Schema* temp_schema = table_show->GetSchema();
-
-    // //！！Transaction *txn, LockManager *lock_manager 不清楚怎么用，暂填写nullptr；
-    // table_page->GetTuple(temp_row,temp_schema,nullptr,nullptr);
-
-    // // char* contains = nullptr;
-    // // dbs_[current_db_]->disk_mgr_->ReadPage(root_page,contains);
-    // //not finished
-
-  }
-  else if(first_level_condition->val_ == "or"){    //如果有or,or下可以有and
-
-  }
-  else if(first_level_condition->val_=="and"){//and 
-
-  }
-
-
-
-
+  // SimpleMemHeap heap;
+  // /** Stage 2: Testing simple operation */
+  // auto db_01 = new DBStorageEngine(db_file_name, true);
+  // auto &catalog_01 = db_01->catalog_mgr_;
+  // TableInfo *table_info = nullptr;
+  // ASSERT_EQ(DB_TABLE_NOT_EXIST, catalog_01->GetTable("table-1", table_info));
+  // std::vector<Column *> columns = {
+  //         ALLOC_COLUMN(heap)("id", TypeId::kTypeInt, 0, false, false),
+  //         ALLOC_COLUMN(heap)("name", TypeId::kTypeChar, 64, 1, true, false),
+  //         ALLOC_COLUMN(heap)("account", TypeId::kTypeFloat, 2, true, false)
+  // };
+  // auto schema = std::make_shared<Schema>(columns);
+  // Transaction txn;
+  // catalog_01->CreateTable("table-1", schema.get(), &txn, table_info);
+  // ASSERT_TRUE(table_info != nullptr);
+  // TableInfo *table_info_02 = nullptr;
+  // ASSERT_EQ(DB_SUCCESS, catalog_01->GetTable("table-1", table_info_02));
+  // ASSERT_EQ(table_info, table_info_02);
+  // auto *table_heap = table_info->GetTableHeap();
+  // ASSERT_TRUE(table_heap != nullptr);
+  // delete db_01;
+  // /** Stage 2: Testing catalog loading */
+  // auto db_02 = new DBStorageEngine(db_file_name, false);
+  // auto &catalog_02 = db_02->catalog_mgr_;
+  // TableInfo *table_info_03 = nullptr;
+  // ASSERT_EQ(DB_TABLE_NOT_EXIST, catalog_02->GetTable("table-2", table_info_03));
+  // ASSERT_EQ(DB_SUCCESS, catalog_02->GetTable("table-1", table_info_03));
+  // delete db_02;
 
   return DB_FAILED;
 }
+
 
 dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
@@ -352,24 +411,24 @@ dberr_t ExecuteEngine::ExecuteUpdate(pSyntaxNode ast, ExecuteContext *context) {
   return DB_FAILED;
 }
 
+// needless to implement
 dberr_t ExecuteEngine::ExecuteTrxBegin(pSyntaxNode ast, ExecuteContext *context) {
-  // needless to implement
   #ifdef ENABLE_EXECUTE_DEBUG
     LOG(INFO) << "ExecuteTrxBegin" << std::endl;
   #endif
   return DB_FAILED;
 }
 
+// needless to implement
 dberr_t ExecuteEngine::ExecuteTrxCommit(pSyntaxNode ast, ExecuteContext *context) {
-  // needless to implement
   #ifdef ENABLE_EXECUTE_DEBUG
     LOG(INFO) << "ExecuteTrxCommit" << std::endl;
   #endif
   return DB_FAILED;
 }
 
+// needless to implement
 dberr_t ExecuteEngine::ExecuteTrxRollback(pSyntaxNode ast, ExecuteContext *context) {
-  // needless to implement
   #ifdef ENABLE_EXECUTE_DEBUG
     LOG(INFO) << "ExecuteTrxRollback" << std::endl;
   #endif
