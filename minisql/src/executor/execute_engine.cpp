@@ -304,23 +304,23 @@ bool GetResultOfNode(const pSyntaxNode &ast /*, Row row */ ){
           return false;
       }
     case kNodeCompareOperator: /** operators '=', '<>', '<=', '>=', '<', '>', is, not */
-      if (ast->val_ == "="){
+      if (string(ast->val_) == "="){
         //todo /* code */
-      }else if (ast->val_ == "<>"){
+      }else if (string(ast->val_) == "<>"){
         //todo /* code */
-      }else if (ast->val_ == "<="){
+      }else if (string(ast->val_) == "<="){
         //todo /* code */
-      }else if (ast->val_ == "<>"){
+      }else if (string(ast->val_) == "<>"){
         //todo /* code */
-      }else if (ast->val_ == ">="){
+      }else if (string(ast->val_) == ">="){
         //todo /* code */
-      }else if (ast->val_ == "<"){
+      }else if (string(ast->val_) == "<"){
         //todo /* code */
-      }else if (ast->val_ == ">"){
+      }else if (string(ast->val_) == ">"){
         //todo /* code */
-      }else if (ast->val_ == "is"){
+      }else if (string(ast->val_) == "is"){
         //todo /* code */
-      }else if (ast->val_ == "not"){
+      }else if (string(ast->val_) == "not"){
         //todo /* code */
       }else{
         LOG(ERROR) << "Unknown kNodeCompareOperator val: " << string(ast->val_) << endl;
@@ -355,8 +355,35 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
     // todo: do select
   }
   
+  // SimpleMemHeap heap;
+  // /** Stage 2: Testing simple operation */
+  // auto db_01 = new DBStorageEngine(db_file_name, true);
+  // auto &catalog_01 = db_01->catalog_mgr_;
+  // TableInfo *table_info = nullptr;
+  // ASSERT_EQ(DB_TABLE_NOT_EXIST, catalog_01->GetTable("table-1", table_info));
+  // std::vector<Column *> columns = {
+  //         ALLOC_COLUMN(heap)("id", TypeId::kTypeInt, 0, false, false),
+  //         ALLOC_COLUMN(heap)("name", TypeId::kTypeChar, 64, 1, true, false),
+  //         ALLOC_COLUMN(heap)("account", TypeId::kTypeFloat, 2, true, false)
+  // };
+  // auto schema = std::make_shared<Schema>(columns);
+  // Transaction txn;
+  // catalog_01->CreateTable("table-1", schema.get(), &txn, table_info);
+  // ASSERT_TRUE(table_info != nullptr);
+  // TableInfo *table_info_02 = nullptr;
+  // ASSERT_EQ(DB_SUCCESS, catalog_01->GetTable("table-1", table_info_02));
+  // ASSERT_EQ(table_info, table_info_02);
+  // auto *table_heap = table_info->GetTableHeap();
+  // ASSERT_TRUE(table_heap != nullptr);
+  // delete db_01;
+  // /** Stage 2: Testing catalog loading */
+  // auto db_02 = new DBStorageEngine(db_file_name, false);
+  // auto &catalog_02 = db_02->catalog_mgr_;
+  // TableInfo *table_info_03 = nullptr;
+  // ASSERT_EQ(DB_TABLE_NOT_EXIST, catalog_02->GetTable("table-2", table_info_03));
+  // ASSERT_EQ(DB_SUCCESS, catalog_02->GetTable("table-1", table_info_03));
+  // delete db_02;
 
-  
   return DB_FAILED;
 }
 
