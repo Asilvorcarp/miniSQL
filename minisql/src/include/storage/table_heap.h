@@ -102,8 +102,12 @@ private:
           schema_(schema),
           log_manager_(log_manager),
           lock_manager_(lock_manager) {
+<<<<<<< HEAD
     this->first_page_id_=0;
     //ASSERT(false, "Not implemented yet.");
+=======
+    //ASSERT(false, "Not implemented yet."); // todo?
+>>>>>>> eca0b89e6040258d1e652d2e12f5ba3e1464d79d
   };
 
   /**
