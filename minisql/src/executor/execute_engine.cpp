@@ -328,6 +328,7 @@ bool GetResultOfNode(const pSyntaxNode &ast /*, Row row */ ){
         LOG(ERROR) << "Unknown kNodeCompareOperator val: " << string(ast->val_) << endl;
         return false;
       }
+      break;
     default:
       LOG(ERROR) << "Unknown node type: " << ast->type_ << endl;
       return false;
@@ -345,7 +346,7 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
   pSyntaxNode whereNode = fromNode->next_; //things after 'where', like 'name = a' (may be null)
   if (selectNode->type_ == kNodeAllColumns) 
   {// select * (all columns)
-    //todo
+    // todo
   }else{// select <columns>
     assert(selectNode->type_ == kNodeColumnList);
     // assert(selectNode->val_ == "select columns");
