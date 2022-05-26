@@ -63,9 +63,11 @@ TableIterator &TableIterator::operator++() {
       page=reinterpret_cast<TablePage *>(table_heap->buffer_pool_manager_->FetchPage(i));
       if(page->GetFirstTupleRid(row_id)){
         row=new Row(*row_id);
+        table_heap->buffer_pool_manager_->UnpinPage(page->GetTablePageId(), false);
         return *this;
       }else{
         row=nullptr;
+        table_heap->buffer_pool_manager_->UnpinPage(page->GetTablePageId(), true);
         return *this;
       }
     }else{
@@ -87,9 +89,11 @@ TableIterator TableIterator::operator++(int) {
       page=reinterpret_cast<TablePage *>(table_heap->buffer_pool_manager_->FetchPage(i));
       if(page->GetFirstTupleRid(row_id)){
         row=new Row(*row_id);
+        table_heap->buffer_pool_manager_->UnpinPage(page->GetTablePageId(), true);
         return TableIterator(tmp);
       }else{
         row=nullptr;
+        table_heap->buffer_pool_manager_->UnpinPage(page->GetTablePageId(), true);
         return TableIterator(tmp);
       }
     }else{

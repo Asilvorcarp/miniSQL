@@ -29,7 +29,7 @@ TEST(BPlusTreeTests, SampleTest) {
     delete_seq.push_back(i);
   }
 
-  Shuffle data
+  //Shuffle data
   ShuffleArray(keys);
   ShuffleArray(values);
   ShuffleArray(delete_seq);
