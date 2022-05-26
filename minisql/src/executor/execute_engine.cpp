@@ -285,17 +285,20 @@ vector<string> GetColumnList(const pSyntaxNode &columnListNode) {
   return columnList;
 }
 
-bool getResultOfNode(const pSyntaxNode &ast /*, row */ ){
+bool GetResultOfNode(const pSyntaxNode &ast /*, Row row */ ){
   if (ast == nullptr) {
+    LOG(ERROR) << "Unexpected nullptr." << endl;
     return false;
   }
   switch (ast->type_) {
+    case kNodeConditions: // where
+      return GetResultOfNode(ast->child_);
     case kNodeConnector:
       switch (ast->val_[0]) {
-        case 'a': // & and    // todo:test AND
-          return getResultOfNode(ast->child_) && getResultOfNode(ast->next_);
+        case 'a': // & and    // todo: test capital AND
+          return GetResultOfNode(ast->child_) && GetResultOfNode(ast->next_);
         case 'o': // | or
-          return getResultOfNode(ast->child_) || getResultOfNode(ast->next_);
+          return GetResultOfNode(ast->child_) || GetResultOfNode(ast->next_);
         default:
           LOG(ERROR) << "Unknown connector: " << string(ast->val_) << endl;
           return false;
@@ -347,10 +350,12 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
     vector<string> selectColumns = GetColumnList(selectNode);
   }
   string fromTable = fromNode->val_; // from table name
-  // judge if select
-  if (whereNode) {
-    getResultOfNode(whereNode->child_ /*, row */ ); // todo: add row
+  // get result of where clause
+  if (GetResultOfNode(whereNode /*, Row row */)) {
+    // todo: do select
   }
+  
+
   
   return DB_FAILED;
 }
