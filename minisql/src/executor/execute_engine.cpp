@@ -443,8 +443,9 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
     cout << temp_index << "\t";
     for (auto &field : line){
       // todo: maybe add a operator<< to Type
-      cout << field << endl; // todo mod
+      cout << field << "\t"; // todo mod
     }
+    cout << endl;
     temp_index++;
   }
 
