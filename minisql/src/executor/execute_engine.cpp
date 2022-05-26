@@ -70,6 +70,7 @@ dberr_t ExecuteEngine::ExecuteCreateDatabase(pSyntaxNode ast, ExecuteContext *co
     return DB_FAILED;
   }
   dbs_.insert(std::make_pair(dbName, new DBStorageEngine(dbName)));
+
   cout << "Database " << dbName << " created." << endl;
   return DB_SUCCESS;
 }
@@ -141,7 +142,8 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
   LOG(INFO) << "ExecuteCreateTable" << std::endl;
   LOG(INFO) << "Create Table: " << tableName << std::endl;
 #endif
-  pSyntaxNode columnDefs = ast->child_->next_;
+  // pSyntaxNode columnDefs = ast->child_->next_;//原来的
+  pSyntaxNode columnDefs = ast->child_->next_->child_;//dxp改
   vector<Column *> columns;
   set<string> columnNameSet;
   uint32_t columnIndex = 0;
@@ -274,10 +276,58 @@ dberr_t ExecuteEngine::ExecuteDropIndex(pSyntaxNode ast, ExecuteContext *context
   return DB_FAILED;
 }
 
+//dxp
 dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteSelect" << std::endl;
 #endif
+  pSyntaxNode select_attributes_head = ast->child_->child_;
+  vector<string> select_attributes_name;
+  //得到所要投影的属性
+  while(select_attributes_head->type_==kNodeIdentifier){
+    select_attributes_name.push_back(select_attributes_head->val_);
+    select_attributes_head = select_attributes_head->next_;
+  }
+  string tableName = ast->child_->next_->val_; //找表的名字。
+  
+  pSyntaxNode conditions = ast->child_; //conditions为所有where条件的头结点
+  while(1){
+    if(conditions->type_==kNodeConditions){
+      break;
+    }
+    conditions = conditions->next_; //为了处理from多个表
+  }
+  //仅支持or与and
+  pSyntaxNode first_level_condition = conditions->child_;
+  if(first_level_condition==nullptr){   //无where约束
+    TableInfo* table_show = nullptr;
+    dbs_[current_db_]->catalog_mgr_->GetTable(tableName,table_show);
+    page_id_t root_page =  table_show->GetRootPageId(); //得到该表的page
+
+    // Page *page = dbs_[current_db_]->bpm_->FetchPage(root_page);
+    // TablePage* table_page = reinterpret_cast<TablePage *>(page->GetData());
+    // Row* temp_row = nullptr;
+    // Schema* temp_schema = table_show->GetSchema();
+
+    // //！！Transaction *txn, LockManager *lock_manager 不清楚怎么用，暂填写nullptr；
+    // table_page->GetTuple(temp_row,temp_schema,nullptr,nullptr);
+
+    // // char* contains = nullptr;
+    // // dbs_[current_db_]->disk_mgr_->ReadPage(root_page,contains);
+    // //not finished
+
+  }
+  else if(first_level_condition->val_ == "or"){    //如果有or,or下可以有and
+
+  }
+  else if(first_level_condition->val_=="and"){//and 
+
+  }
+
+
+
+
+
   return DB_FAILED;
 }
 
