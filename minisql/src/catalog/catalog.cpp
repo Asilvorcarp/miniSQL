@@ -92,9 +92,10 @@ CatalogManager::~CatalogManager() {
   delete heap_;
 }
 
+// new: added primaryKeyIndexs (default: empty)
 dberr_t CatalogManager::CreateTable(const string &table_name, TableSchema *schema,
                                     Transaction *txn, TableInfo *&table_info,
-                                    vector<uint32_t> primaryKeyIndexs = {}) {
+                                    vector<uint32_t> primaryKeyIndexs) {
   if(table_names_.count(table_name)!=0){
     return DB_TABLE_ALREADY_EXIST;
   } 

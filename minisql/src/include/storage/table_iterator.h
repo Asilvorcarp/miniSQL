@@ -30,6 +30,10 @@ public:
 
   bool operator!=(const TableIterator &itr) const;
 
+  bool isNull() const{
+    return row == nullptr;
+  }
+
   const Row &operator*();
 
   Row *operator->();

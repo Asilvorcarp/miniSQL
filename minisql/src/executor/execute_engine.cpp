@@ -59,7 +59,7 @@ dberr_t ExecuteEngine::Execute(pSyntaxNode ast, ExecuteContext *context) {
   /** // todo
    * 执行完SQL语句后需要输出
     * 执行所用的时间 在项目验收中将会用于考察索引效果
-    * 对查询语句 - 共查询到多少条记录
+    * done 对查询语句 - 共查询到多少条记录
     * 对插入/删除/更新语句 - 影响了多少条记录（参考MySQL输出）
    **/
 // todo: count time spent in each function
@@ -154,7 +154,10 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
   uint32_t columnIndex = 0;
   pSyntaxNode columnDef;
   for (columnDef = columnDefList->child_; columnDef->type_ == kNodeColumnDefinition; columnDef = columnDef->next_) {
-    bool isUnique = string(columnDef->val_) == "unique";
+    bool isUnique = false;
+    if (columnDef->val_) { // ensure pointer not null
+      isUnique = string(columnDef->val_) == "unique";
+    }
     bool isNullable = true; // "not null" can only be specified by "primary key" later
     string columnName = columnDef->child_->val_;
     string columnType = columnDef->child_->next_->val_;
@@ -164,7 +167,17 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
     } else if (columnType == "float") {
       columns.push_back(new Column(columnName, TypeId::kTypeFloat, columnIndex, isNullable, isUnique));
     } else if (columnType == "char") {
-      int length = stoi(columnDef->child_->next_->child_->val_);
+      string lengthString = columnDef->child_->next_->child_->val_;
+      // error if length not valid (float or <=0)
+      if (lengthString.find('.') != string::npos) {
+        cout << "Invalid length for char type." << endl;
+        return DB_FAILED;
+      }
+      int length = stoi(lengthString);
+      if (length <= 0) {
+        cout << "Invalid length for char type." << endl;
+        return DB_FAILED;
+      }
       columns.push_back(new Column(columnName, TypeId::kTypeChar, length, columnIndex, isNullable, isUnique));
     //// } else if (columnType == "varchar") { // if only varchar is supported
     ////   int length = stoi(columnDef->child_->next_->child_->val_);
@@ -178,10 +191,10 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
   // columnDef is now after all column definition (now: NULL or columnList)
   pSyntaxNode columnList;
   vector<uint32_t> primaryKeyIndexs = {};
-  for (columnList = columnDef; columnList->type_ == kNodeColumnList; columnList = columnList->next_) {
+  for (columnList = columnDef; columnList && columnList->type_ == kNodeColumnList; columnList = columnList->next_) {
     // get primaryKeyIndexs
     if (string(columnList->val_) == "primary keys") {
-      for (pSyntaxNode identifier = columnList->child_; identifier->type_ == kNodeIdentifier; identifier = identifier->next_) {
+      for (pSyntaxNode identifier = columnList->child_; identifier && identifier->type_ == kNodeIdentifier; identifier = identifier->next_) {
         // try to find the column in the column list
         try
         {
@@ -291,7 +304,21 @@ vector<string> GetChildValues(const pSyntaxNode &columnListNode) {
   vector<string> columnList;
   pSyntaxNode temp_pointer = columnListNode->child_;
   while (temp_pointer) {
+    #ifdef ENABLE_EXECUTE_DEBUG
+      LOG(INFO) << "A val of child: " << string(temp_pointer->val_) << std::endl; // for test
+    #endif
     columnList.push_back(string(temp_pointer->val_));
+    temp_pointer = temp_pointer->next_;
+  }
+  return columnList;
+}
+
+// new: to get child list of a node
+vector<pSyntaxNode> GetChilds(const pSyntaxNode &columnListNode) {
+  vector<pSyntaxNode> columnList;
+  pSyntaxNode temp_pointer = columnListNode->child_;
+  while (temp_pointer) {
+    columnList.push_back(temp_pointer);
     temp_pointer = temp_pointer->next_;
   }
   return columnList;
@@ -309,9 +336,9 @@ bool GetResultOfNode(const pSyntaxNode &ast, const Row &row){
     case kNodeConnector:
       switch (ast->val_[0]) {
         case 'a': // & and    // todo: test capital AND
-          return GetResultOfNode(ast->child_, row) && GetResultOfNode(ast->next_, row);
+          return GetResultOfNode(ast->child_, row) && GetResultOfNode(ast->child_->next_, row);
         case 'o': // | or
-          return GetResultOfNode(ast->child_, row) || GetResultOfNode(ast->next_, row);
+          return GetResultOfNode(ast->child_, row) || GetResultOfNode(ast->child_->next_, row);
         default:
           LOG(ERROR) << "Unknown connector: " << string(ast->val_) << endl;
           return false;
@@ -404,10 +431,10 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
 
   // traverse the table
   TableIterator iter = table_info->GetTableHeap()->Begin(nullptr);
-  TableIterator iter_end = table_info->GetTableHeap()->End();
+  // TableIterator iter_end = table_info->GetTableHeap()->End(); // todo: End函数有bug
   int select_count = 0;
   vector<vector<string>> select_result;
-  for (; iter!=iter_end; iter++) {
+  for (; !iter.isNull(); iter++) {
     Row row = *iter;
     // 2. where
     if (GetResultOfNode(whereNode, row)) {
@@ -430,7 +457,6 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
   cout << "Select count: " << select_count << endl;
 
   // todo print the result
-
   // print the first line (column names)
   cout << "\t";
   for (auto &columnName : selectColumns){
@@ -452,13 +478,89 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
   return DB_SUCCESS;
 }
 
-
+// todo(yj): almost done
 dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteInsert" << std::endl;
 #endif
-  // remember things about primary key
-  return DB_FAILED;
+  // 1. get table name
+  pSyntaxNode tableNode = ast->child_; // table name
+  string tableName = tableNode->val_;
+
+  // 2. get TableSchema and TableHeap
+  TableInfo *table_info = nullptr;
+  dberr_t ret = dbs_[current_db_]->catalog_mgr_->GetTable(tableName, table_info);
+  if(ret == DB_TABLE_NOT_EXIST){
+    cout << "Table not exist." << endl;
+    return DB_FAILED;
+  }
+  assert(ret == DB_SUCCESS);
+  TableSchema *table_schema = table_info->GetSchema();
+  TableHeap *table_heap = table_info->GetTableHeap();
+
+  // 3. convert values to a Row
+  pSyntaxNode valuesNode = tableNode->next_; // values
+  vector<pSyntaxNode> childs = GetChilds(valuesNode); 
+  // ensure the same size of values & columns
+  if (childs.size() != table_schema->GetColumnCount()) {
+    cout << "Column number not match." << endl;
+    return DB_FAILED;
+  }
+  vector<Column *> columns = table_schema->GetColumns();
+  vector<Field> fields;
+  for (uint32_t i = 0; i < childs.size(); i++) {
+    if (childs[i]->type_ == kNodeNull){
+      if ( !columns[i]->IsNullable() ) {
+        cout << "Null value is not allowed for " << columns[i]->GetName() << "." << endl;
+        return DB_FAILED;
+      }
+      fields.push_back(Field(columns[i]->GetType()));
+    }else if (columns[i]->GetType() == kTypeInt) {
+      if (childs[i]->type_ != kNodeNumber || string(childs[i]->val_).find(".") != string::npos) {
+        // error if type not match / has float point "."
+        cout << "Wrong type, expected int value for " << columns[i]->GetName() << "." << endl;
+        return DB_FAILED;
+      }
+      int32_t value = atoi(childs[i]->val_); 
+      fields.push_back(Field(kTypeInt, value));
+    }else if (columns[i]->GetType() == kTypeFloat) {
+      if (childs[i]->type_ != kNodeNumber) {
+        // error if type not match
+        cout << "Wrong type, expected float value for " << columns[i]->GetName() << "." << endl;
+        return DB_FAILED;
+      }
+      float value = atof(childs[i]->val_);
+      fields.push_back(Field(kTypeFloat, value));
+    }else if(columns[i]->GetType() == kTypeChar) {
+      if (childs[i]->type_ != kNodeString) {
+        // error if type not match
+        cout << "Wrong type, expected string value for " << columns[i]->GetName() << "." << endl;
+        return DB_FAILED;
+      }
+      if (strlen(childs[i]->val_) > columns[i]->GetLength()) {
+        // error if too long
+        cout << "The string is too long for " << columns[i]->GetName() << "." << endl;
+        cout << "The string is " << strlen(childs[i]->val_) << " characters long, but the column's max length is " \
+             << columns[i]->GetLength() << " characters." << endl;
+        return DB_FAILED;
+      }
+      // todo: not sure about what "manage_data" means, currently set to true
+      fields.push_back(Field(kTypeChar, childs[i]->val_, strlen(childs[i]->val_), true));
+    }else{
+      LOG(ERROR) << "Unsupported type." << endl;
+      return DB_FAILED;
+    }
+  }
+  Row row(fields);
+
+  // 4. insert
+  // todo: implement things about primary key (error if Equals) inside TableHeap
+  bool ret_bool = table_heap->InsertTuple(row, nullptr);
+  if (ret_bool == false){ // todo: more error type like duplicated primary key
+    cout << "Insert failed." << endl;
+    return DB_FAILED;
+  }
+  return DB_SUCCESS;
 }
 
 dberr_t ExecuteEngine::ExecuteDelete(pSyntaxNode ast, ExecuteContext *context) {
@@ -505,6 +607,7 @@ dberr_t ExecuteEngine::ExecuteExecfile(pSyntaxNode ast, ExecuteContext *context)
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteExecfile" << std::endl;
 #endif
+  // remember to support comments("-- xxx")
   return DB_FAILED;
 }
 

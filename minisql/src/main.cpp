@@ -13,7 +13,7 @@ FILE *yyin;
 }
 
 #define ENABLE_PARSER_DEBUG // todo:for debug
-// #define ENABLE_FILE_INPUT // todo:for debug, only support one line 
+// #define ENABLE_FILE_INPUT // todo:for debug, read cmds from file, only support one line 
 
 void InitGoogleLog(char *argv) {
   FLAGS_logtostderr = true;
@@ -52,14 +52,15 @@ int main(int argc, char **argv) {
   while (1) {
     #ifdef ENABLE_FILE_INPUT
       // read from file
+      memset(cmd, 0, buf_size);
       cmdIn.getline(cmd, buf_size);
     #else
       // read from buffer
       InputCommand(cmd, buf_size);
 
-      //see the Syntax tree
-      SyntaxTreePrinter printer(MinisqlGetParserRootNode());
-      printer.PrintTree(syntax_tree_file_mgr[syntax_tree_id++]);
+      // //see the Syntax tree
+      // SyntaxTreePrinter printer(MinisqlGetParserRootNode()); // error if two printer
+      // printer.PrintTree(syntax_tree_file_mgr[syntax_tree_id++]);
       
     #endif
     // create buffer for sql input
