@@ -87,7 +87,7 @@ public:
   // if precision_of_float is -1, then use default precision
   string ToString(int precision_of_float = -1) const {
     if (is_null_) {
-      return "null";
+      return "NULL";
     }
     std::stringstream buf;
     switch (type_id_) {
@@ -105,6 +105,34 @@ public:
       default:
         LOG(ERROR) << "Unknown field type " << type_id_ << "." << endl;
         return "ERROR";
+    }
+  }
+
+  // new: convert from string (null not allowed, type already set)
+  bool FromString(const string &str) {
+    is_null_ = false;
+    switch (type_id_) {
+      case kTypeInt:
+        if (str.find(".") != string::npos) {
+          LOG(ERROR) << "Invalid integer format " << str << "." << endl;
+          return false;
+        }
+        value_.integer_ = stoi(str);
+        len_ = Type::GetTypeSize(kTypeInt);
+        return true;
+      case kTypeFloat:
+        value_.float_ = stof(str);
+        len_ = Type::GetTypeSize(kTypeFloat);
+        return true;
+      case kTypeChar:
+        len_ = str.size();
+        value_.chars_ = new char[len_];
+        memcpy(value_.chars_, str.c_str(), len_);
+        manage_data_ = true;
+        return true;
+      default:
+        LOG(ERROR) << "Unknown field type " << type_id_ << "." << endl;
+        return true;
     }
   }
 

@@ -1,7 +1,7 @@
 #include "executor/execute_engine.h"
 #include "glog/logging.h"
 
-#define ENABLE_EXECUTE_DEBUG // todo:for debug
+#define ENABLE_EXECUTE_DEBUG // debug
 
 ExecuteEngine::ExecuteEngine() {
 }
@@ -59,7 +59,6 @@ dberr_t ExecuteEngine::Execute(pSyntaxNode ast, ExecuteContext *context) {
   /** // todo
    * 执行完SQL语句后需要输出
     * 执行所用的时间 在项目验收中将会用于考察索引效果
-    * done 对查询语句 - 共查询到多少条记录
     * 对插入/删除/更新语句 - 影响了多少条记录（参考MySQL输出）
    **/
 // todo: count time spent in each function
@@ -222,7 +221,6 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
   TableInfo* table_info = nullptr; // output of CreateTable
   dberr_t ret = dbs_[current_db_]->catalog_mgr_->CreateTable(tableName, table_schema,
                                                   nullptr, table_info, primaryKeyIndexs);
-  // todo: ensure that ret is !DB_TABLE_ALREADY_EXIST!, DB_FAILED or DB_SUCCESS
   if (ret == DB_TABLE_ALREADY_EXIST) {
     cout << "Table " << tableName << " already exists." << endl;
     return DB_FAILED;
@@ -304,9 +302,7 @@ vector<string> GetChildValues(const pSyntaxNode &columnListNode) {
   vector<string> columnList;
   pSyntaxNode temp_pointer = columnListNode->child_;
   while (temp_pointer) {
-    #ifdef ENABLE_EXECUTE_DEBUG
-      LOG(INFO) << "A val of child: " << string(temp_pointer->val_) << std::endl; // for test
-    #endif
+    // LOG(INFO) << "A val of child: " << string(temp_pointer->val_) << std::endl; // for test
     columnList.push_back(string(temp_pointer->val_));
     temp_pointer = temp_pointer->next_;
   }
@@ -326,73 +322,81 @@ vector<pSyntaxNode> GetChilds(const pSyntaxNode &columnListNode) {
 
 // new: get the result of a CompareOperator node 
 // operators '=', '<>', '<=', '>=', '<', '>', is, not
-CmpBool GetCompareResult(const pSyntaxNode &ast, const Row &row) {
-  // todo refer -> table_heap_test.cpp
+CmpBool GetCompareResult(const pSyntaxNode &ast, const Row &row, TableSchema *schema) {
   string fieldName = ast->child_->val_;
-  string rhs = ast->child_->next_->val_;
+  uint32_t fieldIndex;
+  schema->GetColumnIndex(fieldName, fieldIndex);
+  TypeId type = schema->GetColumn(fieldIndex)->GetType();
 
-  // Field tempField();
+  Field tempField(type); // null now
+  if (ast->child_->next_->type_ != kNodeNull){
+    string rhs = ast->child_->next_->val_;
+    tempField.FromString(rhs);
+  }
+  
   if (string(ast->val_) == "="){
-    // return row.GetField(i)->CompareEquals(tempField);
-    return kTrue;
+    return row.GetField(fieldIndex)->CompareEquals(tempField);
   }else if (string(ast->val_) == "<>"){
-    //todo /* code */
-    return kTrue;
+    return row.GetField(fieldIndex)->CompareNotEquals(tempField);
   }else if (string(ast->val_) == "<="){
-    //todo /* code */
-    return kTrue;
-  }else if (string(ast->val_) == "<>"){
-    //todo /* code */
-    return kTrue;
+    return row.GetField(fieldIndex)->CompareLessThanEquals(tempField);
   }else if (string(ast->val_) == ">="){
-    //todo /* code */
-    return kTrue;
+    return row.GetField(fieldIndex)->CompareGreaterThanEquals(tempField);
   }else if (string(ast->val_) == "<"){
-    //todo /* code */
-    return kTrue;
+    return row.GetField(fieldIndex)->CompareLessThan(tempField);
   }else if (string(ast->val_) == ">"){
-    //todo /* code */
-    return kTrue;
+    return row.GetField(fieldIndex)->CompareGreaterThan(tempField);
   }else if (string(ast->val_) == "is"){
-    //todo /* code */
-    return kTrue;
+    return GetCmpBool(row.GetField(fieldIndex)->IsNull() == tempField.IsNull());
   }else if (string(ast->val_) == "not"){
-    //todo /* code */
-    return kTrue;
+    return GetCmpBool(row.GetField(fieldIndex)->IsNull() != tempField.IsNull());
   }else{
     LOG(ERROR) << "Unknown kNodeCompareOperator val: " << string(ast->val_) << endl;
     return kFalse;
   }
 }
 
-// new: get the result of a node 
-// todo: maybe return CmpBool(kTrue, kFalse, kNull)
-bool GetResultOfNode(const pSyntaxNode &ast, const Row &row){
+// new: get the result of a node (kTrue, kFalse, kNull)
+CmpBool GetResultOfNode(const pSyntaxNode &ast, const Row &row, TableSchema *schema) {
   if (ast == nullptr) {
     LOG(ERROR) << "Unexpected nullptr." << endl;
-    return false;
+    return kFalse;
   }
+  CmpBool l, r;
   switch (ast->type_) {
     case kNodeConditions: // where
-      return GetResultOfNode(ast->child_, row);
+      return GetResultOfNode(ast->child_, row, schema);
     case kNodeConnector: // and, or
+      l = GetResultOfNode(ast->child_, row, schema);
+      r = GetResultOfNode(ast->child_->next_, row, schema);
       switch (ast->val_[0]) {
-        case 'a': // & and    // todo: test capital AND
-          return GetResultOfNode(ast->child_, row) && GetResultOfNode(ast->child_->next_, row);
+        case 'a': // & and
+          if (l == kTrue && r == kTrue) {
+            return kTrue;
+          } else if (l == kFalse || r == kFalse) {
+            return kFalse;
+          } else {
+            return kNull;
+          }
         case 'o': // | or
-          return GetResultOfNode(ast->child_, row) || GetResultOfNode(ast->child_->next_, row);
+          if (l == kTrue || r == kTrue) {
+            return kTrue;
+          } else if (l == kFalse && r == kFalse) {
+            return kFalse;
+          } else {
+            return kNull;
+          }
         default:
           LOG(ERROR) << "Unknown connector: " << string(ast->val_) << endl;
-          return false;
+          return kFalse;
       }
     case kNodeCompareOperator: /** operators '=', '<>', '<=', '>=', '<', '>', is, not */
-      // todo: deal with CmpBool(kTrue, kFalse, kNull)
-      return GetCompareResult(ast, row);
+      return GetCompareResult(ast, row, schema);
     default:
       LOG(ERROR) << "Unknown node type: " << ast->type_ << endl;
-      return false;
+      return kFalse;
   }
-  return false;
+  return kFalse;
 }
 
 dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
@@ -412,6 +416,7 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
     return DB_FAILED;
   }
   assert(ret == DB_SUCCESS);
+  TableSchema *table_schema = table_info->GetSchema();
 
   // get the columns to be selected
   vector<string> selectColumns; // select column names
@@ -420,7 +425,7 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
   if (selectNode->type_ == kNodeAllColumns) 
   {// select * (all columns)
     if_select_all = true;
-    for (auto &column : table_info->GetSchema()->GetColumns()) {
+    for (auto &column : table_schema->GetColumns()) {
       selectColumns.push_back(column->GetName());
     }
   }else{// select columns
@@ -429,7 +434,7 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
     selectColumns = GetChildValues(selectNode);
     for (auto &columnName: selectColumns){
       uint32_t index;
-      dberr_t ret = table_info->GetSchema()->GetColumnIndex(columnName, index);
+      dberr_t ret = table_schema->GetColumnIndex(columnName, index);
       if (ret == DB_COLUMN_NAME_NOT_EXIST){
         cout << "Select column " << columnName << " not exist." << endl;
         return DB_FAILED;
@@ -442,13 +447,13 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
 
   // traverse the table
   TableIterator iter = table_info->GetTableHeap()->Begin(nullptr);
-  // TableIterator iter_end = table_info->GetTableHeap()->End(); // todo: End函数有bug
+  // TableIterator iter_end = table_info->GetTableHeap()->End(); // todo: not using it for bug in End()
   int select_count = 0;
   vector<vector<string>> select_result;
   for (; !iter.isNull(); iter++) {
     Row row = *iter;
-    // 2. where
-    if (!whereNode || GetResultOfNode(whereNode, row)) {
+    // 2. where // todo: not sure about kTrue
+    if (!whereNode || GetResultOfNode(whereNode, row, table_schema) == kTrue) {
       // 3. select
       vector<string> result_line;
       std::vector<Field *> &fields = row.GetFields();
@@ -468,12 +473,14 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
 
   // todo: make the result printing more pretty
 
-  // print the first line (column names)
-  cout << "i\t";
-  for (auto &columnName : selectColumns){
-    cout << columnName << "\t";
+  // print the first line (column names) (if result not empty)
+  if (select_count){
+    cout << "i\t";
+    for (auto &columnName : selectColumns){
+      cout << columnName << "\t";
+    }
+    cout << endl;
   }
-  cout << endl;
   // print the results
   uint32_t temp_index = 0;
   for (auto &line : select_result){

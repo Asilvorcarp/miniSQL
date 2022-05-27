@@ -3,7 +3,7 @@
 #include "glog/logging.h"
 #include "parser/syntax_tree_printer.h"
 #include "utils/tree_file_mgr.h"
-#include <fstream> // todo: for debug
+#include <fstream> // for debug
 
 extern "C" {
 int yyparse(void);
@@ -12,8 +12,8 @@ FILE *yyin;
 #include "parser/parser.h"
 }
 
-#define ENABLE_PARSER_DEBUG // todo:for debug
-// #define ENABLE_FILE_INPUT // todo:for debug, read cmds from file, only support one line 
+#define ENABLE_PARSER_DEBUG // debug
+#define ENABLE_FILE_INPUT // debug, read cmds from file, only support one line 
 
 void InitGoogleLog(char *argv) {
   FLAGS_logtostderr = true;
@@ -54,6 +54,7 @@ int main(int argc, char **argv) {
       // read from file
       memset(cmd, 0, buf_size);
       cmdIn.getline(cmd, buf_size);
+      cout << "[CMD] " << cmd << endl;
     #else
       // read from buffer
       InputCommand(cmd, buf_size);
@@ -95,7 +96,7 @@ int main(int argc, char **argv) {
 
     ExecuteContext context;
     engine.Execute(MinisqlGetParserRootNode(), &context);
-    // sleep(1); // todo: jugde if needed
+    // sleep(1); // probably not needed
 
     // clean memory after parse
     MinisqlParserFinish();
