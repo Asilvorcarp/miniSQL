@@ -299,7 +299,7 @@ dberr_t ExecuteEngine::ExecuteDropIndex(pSyntaxNode ast, ExecuteContext *context
   return DB_FAILED;
 }
 
-// new: to get child value list of a node
+// new: get child value list of a node
 vector<string> GetChildValues(const pSyntaxNode &columnListNode) {
   vector<string> columnList;
   pSyntaxNode temp_pointer = columnListNode->child_;
@@ -313,7 +313,7 @@ vector<string> GetChildValues(const pSyntaxNode &columnListNode) {
   return columnList;
 }
 
-// new: to get child list of a node
+// new: get child list of a node
 vector<pSyntaxNode> GetChilds(const pSyntaxNode &columnListNode) {
   vector<pSyntaxNode> columnList;
   pSyntaxNode temp_pointer = columnListNode->child_;
@@ -324,7 +324,49 @@ vector<pSyntaxNode> GetChilds(const pSyntaxNode &columnListNode) {
   return columnList;
 }
 
-// new: to get the result of a node
+// new: get the result of a CompareOperator node 
+// operators '=', '<>', '<=', '>=', '<', '>', is, not
+CmpBool GetCompareResult(const pSyntaxNode &ast, const Row &row) {
+  // todo refer -> table_heap_test.cpp
+  string fieldName = ast->child_->val_;
+  string rhs = ast->child_->next_->val_;
+
+  // Field tempField();
+  if (string(ast->val_) == "="){
+    // return row.GetField(i)->CompareEquals(tempField);
+    return kTrue;
+  }else if (string(ast->val_) == "<>"){
+    //todo /* code */
+    return kTrue;
+  }else if (string(ast->val_) == "<="){
+    //todo /* code */
+    return kTrue;
+  }else if (string(ast->val_) == "<>"){
+    //todo /* code */
+    return kTrue;
+  }else if (string(ast->val_) == ">="){
+    //todo /* code */
+    return kTrue;
+  }else if (string(ast->val_) == "<"){
+    //todo /* code */
+    return kTrue;
+  }else if (string(ast->val_) == ">"){
+    //todo /* code */
+    return kTrue;
+  }else if (string(ast->val_) == "is"){
+    //todo /* code */
+    return kTrue;
+  }else if (string(ast->val_) == "not"){
+    //todo /* code */
+    return kTrue;
+  }else{
+    LOG(ERROR) << "Unknown kNodeCompareOperator val: " << string(ast->val_) << endl;
+    return kFalse;
+  }
+}
+
+// new: get the result of a node 
+// todo: maybe return CmpBool(kTrue, kFalse, kNull)
 bool GetResultOfNode(const pSyntaxNode &ast, const Row &row){
   if (ast == nullptr) {
     LOG(ERROR) << "Unexpected nullptr." << endl;
@@ -333,7 +375,7 @@ bool GetResultOfNode(const pSyntaxNode &ast, const Row &row){
   switch (ast->type_) {
     case kNodeConditions: // where
       return GetResultOfNode(ast->child_, row);
-    case kNodeConnector:
+    case kNodeConnector: // and, or
       switch (ast->val_[0]) {
         case 'a': // & and    // todo: test capital AND
           return GetResultOfNode(ast->child_, row) && GetResultOfNode(ast->child_->next_, row);
@@ -344,41 +386,8 @@ bool GetResultOfNode(const pSyntaxNode &ast, const Row &row){
           return false;
       }
     case kNodeCompareOperator: /** operators '=', '<>', '<=', '>=', '<', '>', is, not */
-
-      // refer -> table_heap_test.cpp
-
-      if (string(ast->val_) == "="){
-        // ASSERT_EQ(CmpBool::kTrue, fields[i]->CompareEquals(fields[i]));
-        //todo /* code */
-        return true;
-      }else if (string(ast->val_) == "<>"){
-        //todo /* code */
-        return true;
-      }else if (string(ast->val_) == "<="){
-        //todo /* code */
-        return true;
-      }else if (string(ast->val_) == "<>"){
-        //todo /* code */
-        return true;
-      }else if (string(ast->val_) == ">="){
-        //todo /* code */
-        return true;
-      }else if (string(ast->val_) == "<"){
-        //todo /* code */
-        return true;
-      }else if (string(ast->val_) == ">"){
-        //todo /* code */
-        return true;
-      }else if (string(ast->val_) == "is"){
-        //todo /* code */
-        return true;
-      }else if (string(ast->val_) == "not"){
-        //todo /* code */
-        return true;
-      }else{
-        LOG(ERROR) << "Unknown kNodeCompareOperator val: " << string(ast->val_) << endl;
-        return false;
-      }
+      // todo: deal with CmpBool(kTrue, kFalse, kNull)
+      return GetCompareResult(ast, row);
     default:
       LOG(ERROR) << "Unknown node type: " << ast->type_ << endl;
       return false;
@@ -386,7 +395,6 @@ bool GetResultOfNode(const pSyntaxNode &ast, const Row &row){
   return false;
 }
 
-// todo(yj): almost done
 dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteSelect" << std::endl;
@@ -412,6 +420,9 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
   if (selectNode->type_ == kNodeAllColumns) 
   {// select * (all columns)
     if_select_all = true;
+    for (auto &column : table_info->GetSchema()->GetColumns()) {
+      selectColumns.push_back(column->GetName());
+    }
   }else{// select columns
     assert(selectNode->type_ == kNodeColumnList);
     assert(string(selectNode->val_) == "select columns");
@@ -437,28 +448,28 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
   for (; !iter.isNull(); iter++) {
     Row row = *iter;
     // 2. where
-    if (GetResultOfNode(whereNode, row)) {
+    if (!whereNode || GetResultOfNode(whereNode, row)) {
       // 3. select
       vector<string> result_line;
       std::vector<Field *> &fields = row.GetFields();
       if (if_select_all){
         for (size_t i = 0; i < fields.size(); i++) {
-          result_line.push_back(fields[i]->GetData());
+          result_line.push_back(fields[i]->ToString());
         }
       }else{
         for (auto &i : selectColumnIndexs){
-          result_line.push_back(fields[i]->GetData());
+          result_line.push_back(fields[i]->ToString());
         }
       }
       select_result.push_back(result_line);
       select_count++;
     }
   }
-  cout << "Select count: " << select_count << endl;
 
-  // todo print the result
+  // todo: make the result printing more pretty
+
   // print the first line (column names)
-  cout << "\t";
+  cout << "i\t";
   for (auto &columnName : selectColumns){
     cout << columnName << "\t";
   }
@@ -468,13 +479,13 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
   for (auto &line : select_result){
     cout << temp_index << "\t";
     for (auto &field : line){
-      // todo: maybe add a operator<< to Type
-      cout << field << "\t"; // todo mod
+      cout << field << "\t";
     }
     cout << endl;
     temp_index++;
   }
-
+  cout << select_count << " rows in set (" << "0.00" << " sec)" << endl;
+  
   return DB_SUCCESS;
 }
 
@@ -537,6 +548,7 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
         cout << "Wrong type, expected string value for " << columns[i]->GetName() << "." << endl;
         return DB_FAILED;
       }
+      // LOG(INFO) << strlen(childs[i]->val_) <<endl; // for test
       if (strlen(childs[i]->val_) > columns[i]->GetLength()) {
         // error if too long
         cout << "The string is too long for " << columns[i]->GetName() << "." << endl;
@@ -560,6 +572,7 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
     cout << "Insert failed." << endl;
     return DB_FAILED;
   }
+  cout << "Query OK, 1 row affected (" << "0.00" << " sec)" << endl;
   return DB_SUCCESS;
 }
 

@@ -2,6 +2,9 @@
 #define MINISQL_FIELD_H
 
 #include <cstring>
+#include <string>
+#include "glog/logging.h"
+using namespace std;
 
 #include "common/config.h"
 #include "common/macros.h"
@@ -78,6 +81,31 @@ public:
   Field &operator=(Field &other) {
     Swap(*this, other);
     return *this;
+  }
+  
+  // new: convert to string
+  // if precision_of_float is -1, then use default precision
+  string ToString(int precision_of_float = -1) const {
+    if (is_null_) {
+      return "null";
+    }
+    std::stringstream buf;
+    switch (type_id_) {
+      case kTypeInt:
+        return to_string(value_.integer_);
+      case kTypeFloat:
+        if (precision_of_float == -1)
+          return to_string(value_.float_);
+        buf.precision(precision_of_float); // set precision
+        buf.setf(std::ios::fixed);       // fixed notation
+        buf << value_.float_;
+        return buf.str();
+      case kTypeChar:
+        return string(value_.chars_, len_);
+      default:
+        LOG(ERROR) << "Unknown field type " << type_id_ << "." << endl;
+        return "ERROR";
+    }
   }
 
   inline bool IsNull() const {
