@@ -1,8 +1,9 @@
 #include "record/row.h"
 uint32_t Row::SerializeTo(char *buf, Schema *schema) const {
   std::vector<bool> null_bitmap;
- 
+  
   uint32_t ofs = 0;
+  ofs += schema->SerializeTo(buf);
   // MACH_WRITE_UINT32(buf+ofs, this->rid_.GetPageId() );  //-Write the row PageId
   // ofs += 4;
   // MACH_WRITE_UINT32(buf+ofs, this->rid_.GetSlotNum() ); //-Write the row GetSlotNum
@@ -43,6 +44,7 @@ uint32_t Row::DeserializeFrom(char *buf, Schema *schema) {
     return 0;
   }
   uint32_t ofs = 0;
+  ofs += schema->DeserializeFrom(buf,schema,heap_);
   // uint32_t temp_PageId = MACH_READ_FROM(uint32_t, buf+ofs);  //-Read row PageId
   // ofs += 4;
   // uint32_t temp_SlotNum = MACH_READ_FROM(uint32_t, buf+ofs);  //-Read SlotNum
@@ -85,6 +87,8 @@ uint32_t Row::GetSerializedSize(Schema *schema) const {
     return 0;
   }
   uint32_t ofs = 0;
+  ofs += schema->GetSerializedSize();
+  
   ofs += 4; //1-Field Nums
 
   std::vector<bool> null_bitmap;
