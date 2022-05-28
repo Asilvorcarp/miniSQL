@@ -301,28 +301,28 @@ bool getResultOfNode(const pSyntaxNode &ast /*, row */ ){
           return false;
       }
     case kNodeCompareOperator: /** operators '=', '<>', '<=', '>=', '<', '>', is, not */
-      if (ast->val_ == "="){
+      // if (ast->val_ == "="){
+      //   //todo /* code */
+      // }else if (ast->val_ == "<>"){
+      //   //todo /* code */
+      // }else if (ast->val_ == "<="){
+      //   //todo /* code */
+      // }else if (ast->val_ == "<>"){
+      //   //todo /* code */
+      // }else if (ast->val_ == ">="){
+      //   //todo /* code */
+      // }else if (ast->val_ == "<"){
+      //   //todo /* code */
+      // }else if (ast->val_ == ">"){
+      //   //todo /* code */
+      // }else if (ast->val_ == "is"){
+      //   //todo /* code */
+      // }else if (ast->val_ == "not"){
         //todo /* code */
-      }else if (ast->val_ == "<>"){
-        //todo /* code */
-      }else if (ast->val_ == "<="){
-        //todo /* code */
-      }else if (ast->val_ == "<>"){
-        //todo /* code */
-      }else if (ast->val_ == ">="){
-        //todo /* code */
-      }else if (ast->val_ == "<"){
-        //todo /* code */
-      }else if (ast->val_ == ">"){
-        //todo /* code */
-      }else if (ast->val_ == "is"){
-        //todo /* code */
-      }else if (ast->val_ == "not"){
-        //todo /* code */
-      }else{
-        LOG(ERROR) << "Unknown kNodeCompareOperator val: " << string(ast->val_) << endl;
-        return false;
-      }
+      // }else{
+      //   LOG(ERROR) << "Unknown kNodeCompareOperator val: " << string(ast->val_) << endl;
+      //   return false;
+      // }
     default:
       LOG(ERROR) << "Unknown node type: " << ast->type_ << endl;
       return false;

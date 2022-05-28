@@ -14,6 +14,7 @@ BPLUSTREE_TYPE::BPlusTree(index_id_t index_id, BufferPoolManager *buffer_pool_ma
           comparator_(comparator),
           leaf_max_size_(leaf_max_size),
           internal_max_size_(internal_max_size) {
+  
 }
 
 INDEX_TEMPLATE_ARGUMENTS

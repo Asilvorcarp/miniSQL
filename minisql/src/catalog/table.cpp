@@ -49,10 +49,12 @@ uint32_t TableMetadata::DeserializeFrom(char *buf, TableMetadata *&table_meta, M
   page_id_t rootPageID=MACH_READ_FROM(page_id_t,buf+ofs);
   ofs+=4;
   Schema *shc=nullptr;
-  ofs+=shc->DeserializeFrom(buf,shc,heap);
+  ofs+=shc->DeserializeFrom(buf+ofs,shc,heap);
   //void *mem=heap->Allocate(sizeof(TableMetadata));
-  ALLOC_P(heap,TableMetadata)(tableID,tableName,rootPageID,shc);
-  table_meta=new TableMetadata(tableID,tableName,rootPageID,shc);
+  // ALLOC_P(heap,TableMetadata)(tableID,tableName,rootPageID,shc);
+  // table_meta=new TableMetadata(tableID,tableName,rootPageID,shc);
+  void *mem=heap->Allocate(sizeof(TableMetadata));
+  table_meta=new(mem)TableMetadata(tableID,tableName,rootPageID,shc);
   return ofs;
 }
 

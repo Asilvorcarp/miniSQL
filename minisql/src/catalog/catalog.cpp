@@ -29,7 +29,7 @@ CatalogMeta *CatalogMeta::DeserializeFrom(char *buf, MemHeap *heap) {
   }
   uint32_t magicNum=MACH_READ_FROM(uint32_t,buf+ofs);
   ofs+=4;
-  if(magicNum&&magicNum!=89849){
+  if(magicNum!=89849){
     std::cerr<<"CATALOG_METADATA_MAGIC_NUM does not match"<<std::endl;
     return NULL;
   }
@@ -68,20 +68,25 @@ CatalogMeta::CatalogMeta() {}
 CatalogManager::CatalogManager(BufferPoolManager *buffer_pool_manager, LockManager *lock_manager,
                                LogManager *log_manager, bool init)
         : buffer_pool_manager_(buffer_pool_manager), lock_manager_(lock_manager),
-          log_manager_(log_manager), heap_(new SimpleMemHeap()) {     
-  Page *pge=buffer_pool_manager->FetchPage(CATALOG_META_PAGE_ID);
-  this->catalog_meta_=CatalogMeta::NewInstance(this->heap_);
-  this->catalog_meta_=CatalogMeta::DeserializeFrom(pge->GetData(),this->heap_);
-  auto iter=this->catalog_meta_->table_meta_pages_.begin();
-  while(iter!=this->catalog_meta_->table_meta_pages_.end()){
-    LoadTable(iter->first,iter->second);
-    iter++;
+          log_manager_(log_manager), heap_(new SimpleMemHeap()) {
+  if(init==true){
+    this->catalog_meta_=CatalogMeta::NewInstance(this->heap_);
   }
-  iter=this->catalog_meta_->index_meta_pages_.begin();
-  while(iter!=this->catalog_meta_->index_meta_pages_.end()){
-    LoadIndex(iter->first,iter->second);
-    iter++;
-  }
+  else{
+    Page *pge=buffer_pool_manager->FetchPage(CATALOG_META_PAGE_ID);
+    this->catalog_meta_=CatalogMeta::NewInstance(this->heap_);
+    this->catalog_meta_=CatalogMeta::DeserializeFrom(pge->GetData(),this->heap_);
+    auto iter=this->catalog_meta_->table_meta_pages_.begin();
+    while(iter!=this->catalog_meta_->table_meta_pages_.end()){
+      LoadTable(iter->first,iter->second);
+      iter++;
+    }
+    iter=this->catalog_meta_->index_meta_pages_.begin();
+    while(iter!=this->catalog_meta_->index_meta_pages_.end()){
+      LoadIndex(iter->first,iter->second);
+      iter++;
+    }
+  }     
   // ASSERT(false, "Not Implemented yet");
 }
 
@@ -139,6 +144,7 @@ dberr_t CatalogManager::CreateIndex(const std::string &table_name, const string 
     if(this->index_names_.count(table_name)&&this->index_names_.at(table_name).count(index_name)!=0){
       return DB_INDEX_ALREADY_EXIST;
     }else{
+      index_id_t nextIndexID=this->catalog_meta_->GetNextIndexId();
       TableInfo *tf=this->tables_.at(this->table_names_.at(table_name));          
       page_id_t pageID; 
       Page *pge=buffer_pool_manager_->NewPage(pageID);
@@ -156,31 +162,17 @@ dberr_t CatalogManager::CreateIndex(const std::string &table_name, const string 
       im->SerializeTo(pge->GetData());
       index_info=IndexInfo::Create(this->heap_);
       index_info->Init(im,tf,this->buffer_pool_manager_);
-      this->catalog_meta_->index_meta_pages_[im->GetIndexId()]=pge->GetPageId();
+      unordered_map<std::string, index_id_t> tmpMap;
+      if(this->index_names_.count(table_name)){
+        tmpMap=this->index_names_.at(table_name);
+      }
+      tmpMap[index_name]=nextIndexID;
+      this->index_names_[table_name]=tmpMap;
+      this->indexes_[nextIndexID]=index_info;
+      this->catalog_meta_->index_meta_pages_[nextIndexID]=pge->GetPageId();
       return DB_SUCCESS;
     }
   }
-   //ASSERT(false, "Not Implemented yet");
-  
-  //   }else{
-  //     //new index
-  //     unordered_map<std::string, index_id_t> tmp=this->index_names_[table_name];
-  //     tmp[index_name]=this->indexIDNum;
-  //     index_info=IndexInfo::Create(this->heap_);
-  //     vector<uint32_t> key_map;
-  //     for(uint32_t i=0;i<index_keys.size();i++){
-  //       key_map.push_back(stoi(index_keys[i]));
-  //     }
-  //     IndexMetadata *im=IndexMetadata::Create(this->indexIDNum,index_name,this->table_names_[table_name],key_map,this->heap_);
-  //     index_info->Init(im,this->tables_[this->table_names_[table_name]],this->buffer_pool_manager_);
-  //     this->index_names_[table_name]=tmp;
-  //     this->indexes_[this->indexIDNum]=index_info;
-  //     this->catalog_meta_->index_meta_pages_[this->indexIDNum]=this->catalog_meta_->table_meta_pages_[this->table_names_[table_name]];
-  //     this->indexIDNum++;
-  //     return DB_SUCCESS;
-  //   }
-  // }else{
-  // }
 }
 
 dberr_t CatalogManager::GetIndex(const std::string &table_name, const std::string &index_name,
@@ -213,9 +205,11 @@ dberr_t CatalogManager::DropTable(const string &table_name) {
     return DB_TABLE_NOT_EXIST;
   }
   //get the page store the table
+  //attention:the table may be stored in more than one page, which causes the more 
   Page *pge=buffer_pool_manager_->FetchPage(this->catalog_meta_->table_meta_pages_.at(this->table_names_.at(table_name)));
   buffer_pool_manager_->DeletePage(pge->GetPageId());
   this->catalog_meta_->table_meta_pages_.erase(this->table_names_.at(table_name));
+  this->tables_[this->table_names_.at(table_name)]->GetTableHeap()->FreeHeap();
   this->tables_.erase(this->table_names_.at(table_name));
   this->table_names_.erase(table_name);
   return DB_SUCCESS;
@@ -245,7 +239,7 @@ dberr_t CatalogManager::LoadTable(const table_id_t table_id, const page_id_t pag
   // ASSERT(false, "Not Impleme
   TableInfo *table_info=TableInfo::Create(this->heap_);
   Page *pge=buffer_pool_manager_->FetchPage(page_id);
-  TableMetadata *tm;
+  TableMetadata *tm=nullptr;
   TableMetadata::DeserializeFrom(pge->GetData(),tm,this->heap_);
   this->table_names_[tm->GetTableName()]=table_id;
   TableHeap *th=TableHeap::Create(this->buffer_pool_manager_,tm->GetSchema(),nullptr,this->log_manager_,this->lock_manager_,table_info->GetMemHeap());
@@ -258,11 +252,14 @@ dberr_t CatalogManager::LoadTable(const table_id_t table_id, const page_id_t pag
 dberr_t CatalogManager::LoadIndex(const index_id_t index_id, const page_id_t page_id) {
   // ASSERT(false, "Not Implemented yet");
   Page *pge=buffer_pool_manager_->FetchPage(page_id);
-  IndexMetadata *im;
+  IndexMetadata *im=nullptr;
   IndexMetadata::DeserializeFrom(pge->GetData(),im,this->heap_);
   IndexInfo *ii=IndexInfo::Create(this->heap_);
   ii->Init(im,this->tables_.at(im->GetTableId()),this->buffer_pool_manager_);
-  unordered_map<std::string, index_id_t> tmp=this->index_names_.at(this->tables_.at(ii->GetTableInfo()->GetTableId())->GetTableName());
+  unordered_map<std::string, index_id_t> tmp;
+  if(index_names_.count(this->tables_.at(ii->GetTableInfo()->GetTableId())->GetTableName())){
+    this->index_names_.at(this->tables_.at(ii->GetTableInfo()->GetTableId())->GetTableName());
+  }
   tmp[ii->GetIndexName()]=index_id;
   this->index_names_[this->tables_.at(ii->GetTableInfo()->GetTableId())->GetTableName()]=tmp;
   this->indexes_[index_id]=ii;

@@ -36,7 +36,12 @@ private:
   IndexMetadata() = delete;
 
   explicit IndexMetadata(const index_id_t index_id, const std::string &index_name,
-                         const table_id_t table_id, const std::vector<uint32_t> &key_map) {}
+                         const table_id_t table_id, const std::vector<uint32_t> &key_map) {
+                           this->index_id_=index_id;
+                           this->index_name_=index_name;
+                           this->table_id_=table_id;
+                           this->key_map_=key_map;
+                         }
 
 private:
   static constexpr uint32_t INDEX_METADATA_MAGIC_NUM = 344528;
@@ -65,8 +70,9 @@ public:
     // Step2: mapping index key to key schema
     // Step3: call CreateIndex to create the index
     this->meta_data_=meta_data;
+    //this->table_info_=TableInfo::Create(this->heap_);
     this->table_info_=table_info;
-    this->key_schema_=Schema::ShallowCopySchema(this->table_info_->GetSchema(),this->meta_data_->GetKeyMapping(),this->table_info_->GetMemHeap());
+    this->key_schema_=Schema::ShallowCopySchema(this->table_info_->GetSchema(),this->meta_data_->GetKeyMapping(),this->heap_);
     //key_schema_=Schema::ShallowCopySchema(table_info->GetSchema(),meta_data_->key_map_,heap_);
     this->index_=CreateIndex(buffer_pool_manager);
   }
@@ -90,7 +96,7 @@ private:
     vector<Column *> tmp=this->key_schema_->GetColumns();
     uint32_t maxLength=0;
     for(uint32_t i=0;i<tmp.size();i++){
-      maxLength=max(maxLength,tmp[i]->GetLength());
+      maxLength=max(maxLength,tmp[i]->GetSerializedSize());
     }
     uint32_t tempSize=4;
     while(maxLength>tempSize){
