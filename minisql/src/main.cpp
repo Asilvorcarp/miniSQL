@@ -56,6 +56,11 @@ int main(int argc, char **argv) {
     #else
       // read from buffer
       InputCommand(cmd, buf_size);
+
+      //see the Syntax tree
+      SyntaxTreePrinter printer(MinisqlGetParserRootNode());
+      printer.PrintTree(syntax_tree_file_mgr[syntax_tree_id++]);
+      
     #endif
     // create buffer for sql input
     YY_BUFFER_STATE bp = yy_scan_string(cmd);

@@ -163,12 +163,12 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
     } else if (columnType == "char") {
       int length = stoi(columnDef->child_->next_->child_->val_);
       columns.push_back(new Column(columnName, TypeId::kTypeInt, length, columnIndex, isNullable, isUnique));
-    // } else if (columnType == "varchar") { // todo: if varchar is supported
+    // } else if (columnType == "varchar") { //// if varchar is supported
     //   int length = stoi(columnDef->child_->next_->child_->val_);
     //   columns.push_back(new Column(columnName, TypeId::KMaxTypeId, length, columnIndex, isNullable, isUnique));
     } else {
       cout << "Invalid column type: " << columnType << endl;
-      return DB_FAILED; // todo: maybe roolback
+      return DB_FAILED; 
     }
     columnIndex++;
   }
@@ -181,13 +181,13 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
         if (columnNameSet.find(identifier->val_) == columnNameSet.end()) {
           cout << "Primary key " << identifier->val_ << " does not exist." << endl;
           // DB_KEY_NOT_FOUND;
-          return DB_FAILED; // todo: maybe roolback
+          return DB_FAILED; 
         }
         primaryKeys.push_back(identifier->val_);
       }
       if (primaryKeys.size() == 0) {
         cout << "Empty primary key list." << endl;
-        return DB_FAILED; // todo: maybe roolback
+        return DB_FAILED; 
       }
     }
     // todo: maybe support "foreign keys" and "check"
@@ -210,40 +210,151 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
   return DB_SUCCESS;
 }
 
+//dxp
 dberr_t ExecuteEngine::ExecuteDropTable(pSyntaxNode ast, ExecuteContext *context) {
+  string tableName = ast->child_->val_;   //drop table <表名>
 #ifdef ENABLE_EXECUTE_DEBUG
-  LOG(INFO) << "ExecuteDropTable" << std::endl;
+  LOG(INFO) << "ExecuteShowTables" << std::endl;
+  LOG(INFO) << "Drop Table:" << tableName << std::endl;
 #endif
-  return DB_FAILED;
+  // if(dbs_[current_db_]->catalog_mgr_->DropTable(tableName)==DB_SUCCESS){
+  //   cout << "Table " << tableName << " dropped." << endl;
+  //   return DB_SUCCESS;
+  // }
+  // else{
+  //   cout << "Don't find " << tableName << "." << endl;
+  //   return DB_TABLE_NOT_EXIST;
+  // }
+  return dbs_[current_db_]->catalog_mgr_->DropTable(tableName);
 }
 
+//dxp
 dberr_t ExecuteEngine::ExecuteShowIndexes(pSyntaxNode ast, ExecuteContext *context) {
+  string tableName = ast->child_->val_; //找表的名字，根据语法树。//SHOW INDEX FROM <表名>
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteShowIndexes" << std::endl;
 #endif
-  return DB_FAILED;
+  vector<IndexInfo *> indexes;
+  dbs_[current_db_]->catalog_mgr_->GetTableIndexes(tableName,indexes);
+  if(indexes.empty()){
+    cout << "No index exists." << std::endl;
+    return DB_SUCCESS;
+  }
+  for(vector<IndexInfo *>::iterator its= indexes.begin();its!=indexes.end();its++){
+    cout <<(*its)->GetIndexName()<<std::endl;
+  }
+  return DB_SUCCESS;
 }
 
+//dxp
 dberr_t ExecuteEngine::ExecuteCreateIndex(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteCreateIndex" << std::endl;
 #endif
-  return DB_FAILED;
+  string indexName = ast->child_->val_; //找index的名字，根据语法树。
+  string tableName = ast->child_->next_->val_; //找表的名字，根据语法树。
+  pSyntaxNode temp_pointer = ast->child_->next_->next_->child_;
+  vector<std::string> index_keys; //找生成索引的属性。
+  while(temp_pointer){
+    index_keys.push_back(temp_pointer->val_);
+    temp_pointer = temp_pointer->next_;
+  }
+  //not sure ！！参数列表中的Transaction *txn,IndexInfo *&index_info 不知道怎么传 
+  IndexInfo * nuknow;
+  return dbs_[current_db_]->catalog_mgr_->CreateIndex(tableName,indexName,index_keys,nullptr,nuknow);
 }
 
+//dxp not finished  //好像只能drop index 索引名； 但调用需要知道表名；
 dberr_t ExecuteEngine::ExecuteDropIndex(pSyntaxNode ast, ExecuteContext *context) {
+  string indexName = ast->child_->val_; //根据语法树找index的名字。
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteDropIndex" << std::endl;
 #endif
+  //not finished
   return DB_FAILED;
 }
 
+// new
+vector<string> GetColumnList(const pSyntaxNode &columnListNode) {
+  vector<string> columnList;
+  pSyntaxNode temp_pointer = columnListNode->child_;
+  while (temp_pointer) {
+    columnList.push_back(string(temp_pointer->val_));
+    temp_pointer = temp_pointer->next_;
+  }
+  return columnList;
+}
+
+bool getResultOfNode(const pSyntaxNode &ast /*, row */ ){
+  if (ast == nullptr) {
+    return false;
+  }
+  switch (ast->type_) {
+    case kNodeConnector:
+      switch (ast->val_[0]) {
+        case 'a': // & and    // todo:test AND
+          return getResultOfNode(ast->child_) && getResultOfNode(ast->next_);
+        case 'o': // | or
+          return getResultOfNode(ast->child_) || getResultOfNode(ast->next_);
+        default:
+          LOG(ERROR) << "Unknown connector: " << string(ast->val_) << endl;
+          return false;
+      }
+    case kNodeCompareOperator: /** operators '=', '<>', '<=', '>=', '<', '>', is, not */
+      if (ast->val_ == "="){
+        //todo /* code */
+      }else if (ast->val_ == "<>"){
+        //todo /* code */
+      }else if (ast->val_ == "<="){
+        //todo /* code */
+      }else if (ast->val_ == "<>"){
+        //todo /* code */
+      }else if (ast->val_ == ">="){
+        //todo /* code */
+      }else if (ast->val_ == "<"){
+        //todo /* code */
+      }else if (ast->val_ == ">"){
+        //todo /* code */
+      }else if (ast->val_ == "is"){
+        //todo /* code */
+      }else if (ast->val_ == "not"){
+        //todo /* code */
+      }else{
+        LOG(ERROR) << "Unknown kNodeCompareOperator val: " << string(ast->val_) << endl;
+        return false;
+      }
+    default:
+      LOG(ERROR) << "Unknown node type: " << ast->type_ << endl;
+      return false;
+  }
+  return false;
+}
+
+// todo(yj): doing
 dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteSelect" << std::endl;
 #endif
+  pSyntaxNode selectNode = ast->child_; //things after 'select', like '*', 'name, id'
+  pSyntaxNode fromNode = selectNode->next_; //things after 'from', like 't1'
+  pSyntaxNode whereNode = fromNode->next_; //things after 'where', like 'name = a' (may be null)
+  if (selectNode->type_ == kNodeAllColumns) 
+  {// select * (all columns)
+    //todo
+  }else{// select <columns>
+    assert(selectNode->type_ == kNodeColumnList);
+    // assert(selectNode->val_ == "select columns");
+    vector<string> selectColumns = GetColumnList(selectNode);
+  }
+  string fromTable = fromNode->val_; // from table name
+  // judge if select
+  if (whereNode) {
+    getResultOfNode(whereNode->child_ /*, row */ ); // todo: add row
+  }
+  
   return DB_FAILED;
 }
+
 
 dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
@@ -266,24 +377,24 @@ dberr_t ExecuteEngine::ExecuteUpdate(pSyntaxNode ast, ExecuteContext *context) {
   return DB_FAILED;
 }
 
+// needless to implement
 dberr_t ExecuteEngine::ExecuteTrxBegin(pSyntaxNode ast, ExecuteContext *context) {
-  // needless to implement
   #ifdef ENABLE_EXECUTE_DEBUG
     LOG(INFO) << "ExecuteTrxBegin" << std::endl;
   #endif
   return DB_FAILED;
 }
 
+// needless to implement
 dberr_t ExecuteEngine::ExecuteTrxCommit(pSyntaxNode ast, ExecuteContext *context) {
-  // needless to implement
   #ifdef ENABLE_EXECUTE_DEBUG
     LOG(INFO) << "ExecuteTrxCommit" << std::endl;
   #endif
   return DB_FAILED;
 }
 
+// needless to implement
 dberr_t ExecuteEngine::ExecuteTrxRollback(pSyntaxNode ast, ExecuteContext *context) {
-  // needless to implement
   #ifdef ENABLE_EXECUTE_DEBUG
     LOG(INFO) << "ExecuteTrxRollback" << std::endl;
   #endif
