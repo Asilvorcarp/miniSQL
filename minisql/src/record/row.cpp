@@ -3,11 +3,11 @@ uint32_t Row::SerializeTo(char *buf, Schema *schema) const {
   std::vector<bool> null_bitmap;
   
   uint32_t ofs = 0;
-  ofs += schema->SerializeTo(buf);
+  ofs += schema->SerializeTo(buf);//0-schema
 
-  MACH_WRITE_UINT32(buf+ofs, this->rid_.GetPageId() );  //-Write the row PageId
+  MACH_WRITE_UINT32(buf+ofs, this->rid_.GetPageId() );  //0.5-Write the row PageId
   ofs += 4;
-  MACH_WRITE_UINT32(buf+ofs, this->rid_.GetSlotNum() ); //-Write the row GetSlotNum
+  MACH_WRITE_UINT32(buf+ofs, this->rid_.GetSlotNum() ); //0.5-Write the row GetSlotNum
   ofs += 4;
 
   MACH_WRITE_UINT32(buf+ofs, this->fields_.size() );   //1-Write the Write the Field Nums
@@ -46,10 +46,10 @@ uint32_t Row::DeserializeFrom(char *buf, Schema *schema) {
     return 0;
   }
   uint32_t ofs = 0;
-  ofs += schema->DeserializeFrom(buf,schema,heap_);
-  uint32_t temp_PageId = MACH_READ_FROM(uint32_t, buf+ofs);  //-Read row PageId
+  ofs += schema->DeserializeFrom(buf,schema,heap_);//0-schema
+  uint32_t temp_PageId = MACH_READ_FROM(uint32_t, buf+ofs);  //0.5-Read row PageId
   ofs += 4;
-  uint32_t temp_SlotNum = MACH_READ_FROM(uint32_t, buf+ofs);  //-Read SlotNum
+  uint32_t temp_SlotNum = MACH_READ_FROM(uint32_t, buf+ofs);  //0.5-Read SlotNum
   ofs += 4;
   this->rid_.Set(temp_PageId,temp_SlotNum);
   uint32_t temp_size = MACH_READ_FROM(uint32_t, buf+ofs);   //1-Read the size
@@ -89,7 +89,7 @@ uint32_t Row::GetSerializedSize(Schema *schema) const {
     return 0;
   }
   uint32_t ofs = 0;
-  ofs += schema->GetSerializedSize();
+  ofs += schema->GetSerializedSize(); //0-schema
 
   ofs += 4 * 3; //1-Field Nums +row PageId +SlotNum
 
