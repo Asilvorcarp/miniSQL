@@ -36,7 +36,8 @@ private:
   IndexMetadata() = delete;
 
   explicit IndexMetadata(const index_id_t index_id, const std::string &index_name,
-                         const table_id_t table_id, const std::vector<uint32_t> &key_map) {}
+                         const table_id_t table_id, const std::vector<uint32_t> &key_map) 
+    : index_id_(index_id), index_name_(index_name), table_id_(table_id), key_map_(key_map) {}
 
 private:
   static constexpr uint32_t INDEX_METADATA_MAGIC_NUM = 344528;
@@ -88,12 +89,12 @@ private:
   Index *CreateIndex(BufferPoolManager *buffer_pool_manager) {
     //ASSERT(false, "Not Implemented yet.");
     vector<Column *> tmp=this->key_schema_->GetColumns();
-    uint32_t maxLength=0;
+    uint32_t totalLength=0;
     for(uint32_t i=0;i<tmp.size();i++){
-      maxLength=max(maxLength,tmp[i]->GetLength());
+      totalLength += tmp[i]->GetLength();
     }
     uint32_t tempSize=4;
-    while(maxLength>tempSize){
+    while(totalLength>tempSize){
       tempSize<<=1;
     }
     void *buf;
