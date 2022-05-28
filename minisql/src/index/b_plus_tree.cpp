@@ -22,6 +22,8 @@ BPLUSTREE_TYPE::BPlusTree(index_id_t index_id, BufferPoolManager *buffer_pool_ma
   if (index_roots_page->GetRootId(index_id_, &root_page_id_) == false) {
     root_page_id_ = INVALID_PAGE_ID;
   }
+
+  buffer_pool_manager_->UnpinPage(INDEX_ROOTS_PAGE_ID, false);
   
 }
 
@@ -405,6 +407,7 @@ bool BPLUSTREE_TYPE::AdjustRoot(BPlusTreePage *old_root_node) {
   if (old_root_node->IsLeafPage()) {
     assert(old_root_node->GetSize() == 0);
     root_page_id_ = INVALID_PAGE_ID;
+    UpdateRootPageId();
 
     buffer_pool_manager_->UnpinPage(old_root_node->GetPageId(), true);
     if (!buffer_pool_manager_->DeletePage(old_root_node->GetPageId())) {
@@ -535,10 +538,14 @@ B_PLUS_TREE_LEAF_PAGE_TYPE *BPLUSTREE_TYPE::FindLeafPage(const KeyType &key, boo
  */
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::UpdateRootPageId(int insert_record) {
-  /**
-   * todo: where is the GOD DAMN header_page?
-   * maybe this method is not needed.
-   **/
+  IndexRootsPage *index_roots_page = reinterpret_cast<IndexRootsPage *>(
+                                      buffer_pool_manager_->FetchPage(INDEX_ROOTS_PAGE_ID)->GetData()
+                                      );
+  bool ret = index_roots_page->Update(index_id_, root_page_id_);
+  if (!ret) {
+    index_roots_page->Insert(index_id_, root_page_id_);
+  }
+  buffer_pool_manager_->UnpinPage(INDEX_ROOTS_PAGE_ID, true);
 }
 
 /**
