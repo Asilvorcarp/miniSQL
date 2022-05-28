@@ -583,19 +583,59 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
   return DB_SUCCESS;
 }
 
+//dxp
 dberr_t ExecuteEngine::ExecuteDelete(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteDelete" << std::endl;
 #endif
   // ASSERT_TRUE(table_page.MarkDelete(row.GetRowId(), nullptr, nullptr, nullptr));
   // table_page.ApplyDelete(row.GetRowId(), nullptr, nullptr);
-  return DB_FAILED;
+  pSyntaxNode fromNode = ast->child_; //things after 'from', like 't1'
+  pSyntaxNode whereNode = ast->child_->next_; //things after 'where', like 'name = a' (may be null)
+  
+  // 1. from
+  string fromTable = fromNode->val_; // from table name
+  TableInfo *table_info = nullptr;
+  dberr_t ret = dbs_[current_db_]->catalog_mgr_->GetTable(fromTable, table_info);
+  if(ret == DB_TABLE_NOT_EXIST){
+    cout << "Table not exist." << endl;
+    return DB_FAILED;
+  }
+  assert(ret == DB_SUCCESS);
+  TableSchema *table_schema = table_info->GetSchema();
+  TableHeap *table_heap = table_info->GetTableHeap();
+
+  // traverse the table
+  TableIterator iter = table_info->GetTableHeap()->Begin(nullptr);
+  // TableIterator iter_end = table_info->GetTableHeap()->End(); // todo: not using it for bug in End()  ??
+  int delete_count = 0;
+  // vector<vector<string>> select_result;
+  for (; !iter.isNull(); iter++) {
+    Row row = *iter;
+    // 2. where // todo: not sure about kTrue
+    if (!whereNode || GetResultOfNode(whereNode, row, table_schema) == kTrue) {
+      auto row_id = row.GetRowId();
+      bool ret_bool = table_heap->MarkDelete(row_id,nullptr);
+      if (ret_bool == false){
+        cout << "Delete failed." << endl;
+        return DB_FAILED;
+      }
+      delete_count++;
+    }
+  }
+  cout << "Query OK, "<<delete_count<<" row deleted (" << "0.00" << " sec)" << endl;
+  return DB_SUCCESS;
 }
 
+//dxp
 dberr_t ExecuteEngine::ExecuteUpdate(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteUpdate" << std::endl;
 #endif
+
+
+
+  
   return DB_FAILED;
 }
 
