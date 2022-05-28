@@ -97,8 +97,10 @@ CatalogManager::~CatalogManager() {
   delete heap_;
 }
 
+// new: added primaryKeyIndexs (default: empty)
 dberr_t CatalogManager::CreateTable(const string &table_name, TableSchema *schema,
-                                    Transaction *txn, TableInfo *&table_info) {
+                                    Transaction *txn, TableInfo *&table_info,
+                                    vector<uint32_t> primaryKeyIndexs) {
   if(table_names_.count(table_name)!=0){
     return DB_TABLE_ALREADY_EXIST;
   } 
@@ -106,7 +108,7 @@ dberr_t CatalogManager::CreateTable(const string &table_name, TableSchema *schem
   Page *pge=buffer_pool_manager_->NewPage(pageID);
   TableHeap *th=TableHeap::Create(this->buffer_pool_manager_,schema,txn,this->log_manager_,this->lock_manager_,this->heap_);
   table_id_t tableID=this->catalog_meta_->GetNextTableId();
-  TableMetadata *tm=TableMetadata::Create(tableID,table_name,pageID,schema,this->heap_);
+  TableMetadata *tm=TableMetadata::Create(tableID,table_name,pageID,schema,this->heap_,primaryKeyIndexs);
   table_info=TableInfo::Create(this->heap_);
   table_info->Init(tm,th);
   this->table_names_[table_name]=tableID;

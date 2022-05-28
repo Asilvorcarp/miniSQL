@@ -7,6 +7,7 @@ TableIterator::TableIterator(TableHeap *th,RowId *row_id){
   table_heap=th;
   page=reinterpret_cast<TablePage *>(table_heap->buffer_pool_manager_->FetchPage(row_id->GetPageId()));
   row=new Row(*row_id);
+  table_heap->GetTuple(row, nullptr);
 }
 
 TableIterator::TableIterator(TableHeap *th){
@@ -15,6 +16,7 @@ TableIterator::TableIterator(TableHeap *th){
   RowId *row_id=new RowId();
   if(page->GetFirstTupleRid(row_id)){
     row=new Row(*row_id);
+    table_heap->GetTuple(row, nullptr);
   }
 }
 
@@ -56,6 +58,7 @@ TableIterator &TableIterator::operator++() {
   RowId *row_id=new RowId();
   if(page->GetNextTupleRid(row->GetRowId(),row_id)){
     row=new Row(*row_id);
+    table_heap->GetTuple(row, nullptr);
     return *this;
   }else{//need to find next page
     int i=page->GetNextPageId();
@@ -63,6 +66,7 @@ TableIterator &TableIterator::operator++() {
       page=reinterpret_cast<TablePage *>(table_heap->buffer_pool_manager_->FetchPage(i));
       if(page->GetFirstTupleRid(row_id)){
         row=new Row(*row_id);
+        table_heap->GetTuple(row, nullptr);
         table_heap->buffer_pool_manager_->UnpinPage(page->GetTablePageId(), false);
         return *this;
       }else{
@@ -82,6 +86,7 @@ TableIterator TableIterator::operator++(int) {
   RowId *row_id=new RowId();
   if(page->GetNextTupleRid(row->GetRowId(),row_id)){
     row=new Row(*row_id);
+    table_heap->GetTuple(row, nullptr);
     return TableIterator(tmp);
   }else{//need to find next page
     int i=page->GetNextPageId();
@@ -89,6 +94,7 @@ TableIterator TableIterator::operator++(int) {
       page=reinterpret_cast<TablePage *>(table_heap->buffer_pool_manager_->FetchPage(i));
       if(page->GetFirstTupleRid(row_id)){
         row=new Row(*row_id);
+        table_heap->GetTuple(row, nullptr);
         table_heap->buffer_pool_manager_->UnpinPage(page->GetTablePageId(), true);
         return TableIterator(tmp);
       }else{

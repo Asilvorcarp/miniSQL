@@ -94,12 +94,12 @@ private:
   Index *CreateIndex(BufferPoolManager *buffer_pool_manager) {
     //ASSERT(false, "Not Implemented yet.");
     vector<Column *> tmp=this->key_schema_->GetColumns();
-    uint32_t maxLength=0;
+    uint32_t totalLength=0;
     for(uint32_t i=0;i<tmp.size();i++){
-      maxLength=max(maxLength,tmp[i]->GetSerializedSize());
+      totalLength += tmp[i]->GetLength();
     }
     uint32_t tempSize=4;
-    while(maxLength>tempSize){
+    while(totalLength>tempSize){
       tempSize<<=1;
     }
     void *buf;

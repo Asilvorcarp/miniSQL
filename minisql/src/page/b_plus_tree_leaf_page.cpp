@@ -160,8 +160,8 @@ bool B_PLUS_TREE_LEAF_PAGE_TYPE::Lookup(const KeyType &key, ValueType &value, co
 /*
  * First look through leaf page to see whether delete key exist or not. If
  * exist, perform deletion, otherwise return immediately.
- * NOTE: store key&value pair continuously after deletion
- * @return  page size after deletion
+ * NOTE: ensure all key & value pairs store in continuous storage.
+ * @return  node size after deletion
  */
 INDEX_TEMPLATE_ARGUMENTS
 int B_PLUS_TREE_LEAF_PAGE_TYPE::RemoveAndDeleteRecord(const KeyType &key, const KeyComparator &comparator) {

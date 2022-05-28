@@ -13,10 +13,16 @@ uint32_t TableMetadata::SerializeTo(char *buf) const {
   MACH_WRITE_INT32(buf+ofs,root_page_id_);
   ofs+=4;
   ofs+=schema_->SerializeTo(buf+ofs);
+
+  // todo: probably need to support primaryKeyIndexs 
+  
   return ofs;
 }
 
 uint32_t TableMetadata::GetSerializedSize() const {
+
+  // todo: probably need to support primaryKeyIndexs 
+
   return sizeof(uint32_t)*4+table_name_.size()+schema_->GetSerializedSize();
 }
 
@@ -63,12 +69,17 @@ uint32_t TableMetadata::DeserializeFrom(char *buf, TableMetadata *&table_meta, M
  *
  * @param heap Memory heap passed by TableInfo
  */
+  // new: added primaryKeyIndexs (default: empty)
 TableMetadata *TableMetadata::Create(table_id_t table_id, std::string table_name,
-                                     page_id_t root_page_id, TableSchema *schema, MemHeap *heap) {
+                                     page_id_t root_page_id, TableSchema *schema, MemHeap *heap,
+                                     vector<uint32_t> primaryKeyIndexs) {
   // allocate space for table metadata
   void *buf = heap->Allocate(sizeof(TableMetadata));
-  return new(buf)TableMetadata(table_id, table_name, root_page_id, schema);
+  return new(buf)TableMetadata(table_id, table_name, root_page_id, schema, primaryKeyIndexs);
 }
 
-TableMetadata::TableMetadata(table_id_t table_id, std::string table_name, page_id_t root_page_id, TableSchema *schema)
-        : table_id_(table_id), table_name_(table_name), root_page_id_(root_page_id), schema_(schema) {}
+// new: added primaryKeyIndexs (default: empty)
+TableMetadata::TableMetadata(table_id_t table_id, std::string table_name, page_id_t root_page_id, TableSchema *schema,
+                             vector<uint32_t> primaryKeyIndexs)
+        : table_id_(table_id), table_name_(table_name), root_page_id_(root_page_id),
+          schema_(schema), primaryKeyIndexs_(primaryKeyIndexs) {}
