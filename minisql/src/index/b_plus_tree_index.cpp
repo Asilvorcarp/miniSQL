@@ -1,5 +1,6 @@
 #include "index/b_plus_tree_index.h"
 #include "index/generic_key.h"
+#include "utils/tree_file_mgr.h" // debug // todo remove
 
 INDEX_TEMPLATE_ARGUMENTS
 BPLUSTREE_INDEX_TYPE::BPlusTreeIndex(index_id_t index_id, IndexSchema *key_schema,
@@ -38,6 +39,8 @@ dberr_t BPLUSTREE_INDEX_TYPE::ScanKey(const Row &key, vector<RowId> &result, Tra
   KeyType index_key;
   index_key.SerializeFromKey(key, key_schema_);
   if (container_.GetValue(index_key, result, txn)) {
+    TreeFileManagers mgr("TreeScankey_"); // debug // todo remove
+    container_.PrintTree(mgr[1]); // debug // todo remove
     return DB_SUCCESS;
   }
   return DB_KEY_NOT_FOUND;

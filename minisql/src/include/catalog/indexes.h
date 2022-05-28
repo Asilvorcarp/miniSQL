@@ -122,7 +122,7 @@ private:
       buf=this->heap_->Allocate(sizeof(BPlusTreeIndex<GenericKey<32>,RowId,GenericComparator<32>>));
       return new(buf)BPlusTreeIndex<GenericKey<32>,RowId,GenericComparator<32>>(this->meta_data_->GetIndexId(),this->key_schema_,buffer_pool_manager);
     }
-    return new BPlusTreeIndex<GenericKey<4>,RowId,GenericComparator<4>>(this->meta_data_->GetIndexId(),this->key_schema_,buffer_pool_manager);
+    return new BPlusTreeIndex<GenericKey<64>,RowId,GenericComparator<64>>(this->meta_data_->GetIndexId(),this->key_schema_,buffer_pool_manager);
   }
 
 private:

@@ -4,6 +4,7 @@
 #include "index/basic_comparator.h"
 #include "index/generic_key.h"
 #include "page/index_roots_page.h"
+#include "utils/tree_file_mgr.h" // debug // todo remove
 
 INDEX_TEMPLATE_ARGUMENTS
 BPLUSTREE_TYPE::BPlusTree(index_id_t index_id, BufferPoolManager *buffer_pool_manager, const KeyComparator &comparator,
@@ -18,11 +19,14 @@ BPLUSTREE_TYPE::BPlusTree(index_id_t index_id, BufferPoolManager *buffer_pool_ma
   IndexRootsPage *index_roots_page = reinterpret_cast<IndexRootsPage *>(
                                         buffer_pool_manager_->FetchPage(INDEX_ROOTS_PAGE_ID)->GetData()
                                         );
+  bool ret = index_roots_page->GetRootId(index_id_, &root_page_id_);
 
-  if (index_roots_page->GetRootId(index_id_, &root_page_id_) == false) {
+  if (ret == false) {
     root_page_id_ = INVALID_PAGE_ID;
+  }else{
+    TreeFileManagers mgr("TreeRebuild_");  // debug // todo remove
+    PrintTree(mgr[1]);  // debug // todo remove
   }
-
   buffer_pool_manager_->UnpinPage(INDEX_ROOTS_PAGE_ID, false);
   
 }
