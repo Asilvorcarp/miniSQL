@@ -1,7 +1,5 @@
 #include "record/row.h"
 uint32_t Row::SerializeTo(char *buf, Schema *schema) const {
-  std::vector<bool> null_bitmap;
-  
   uint32_t ofs = 0;
   // ofs += schema->SerializeTo(buf);//0-schema
 
@@ -28,15 +26,12 @@ uint32_t Row::SerializeTo(char *buf, Schema *schema) const {
 
   for(uint32_t i = 0;i<fields_.size();i++)  
   {
-    if(null_bitmap[i]==false){
-      // MACH_WRITE_TO(TypeId,buf+ofs, this->fields_[i]->get_type_id()); //3-Write the field_type_id
-      // ofs += sizeof(TypeId);
+    // MACH_WRITE_TO(TypeId,buf+ofs, this->fields_[i]->get_type_id()); //3-Write the field_type_id
+    // ofs += sizeof(TypeId);
 
-      // MACH_WRITE_TO(bool,buf+ofs, this->fields_[i]->IsNull());  //4-Write the field_is_null
-      // ofs += sizeof(bool);
-
-      ofs += this->fields_[i]->SerializeTo(buf+ofs);    //5-Write the field
-    }
+    // MACH_WRITE_TO(bool,buf+ofs, this->fields_[i]->IsNull());  //4-Write the field_is_null
+    // ofs += sizeof(bool);
+    ofs += this->fields_[i]->SerializeTo(buf+ofs);    //5-Write the field
   }
   return ofs;
 }
