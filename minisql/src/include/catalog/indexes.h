@@ -102,27 +102,27 @@ private:
     while(totalLength>tempSize){
       tempSize<<=1;
     }
-    return new BPlusTreeIndex<GenericKey<64>,RowId,GenericComparator<64>>(this->meta_data_->GetIndexId(),this->key_schema_,buffer_pool_manager);
-    // void *buf;
-    // switch(tempSize){
-    //   case 4:
-    //   //BPlusTreeIndex<GenericKey<4>,RowId,GenericComparator<4>> *tmp;
-    //   buf=this->heap_->Allocate(sizeof(BPlusTreeIndex<GenericKey<4>,RowId,GenericComparator<4>>));
-    //   return new(buf)BPlusTreeIndex<GenericKey<4>,RowId,GenericComparator<4>>(this->meta_data_->GetIndexId(),this->key_schema_,buffer_pool_manager);
-    //   case 8:
-    //   //BPlusTreeIndex<GenericKey<8>,RowId,GenericComparator<8>> *tmp=NULL;
-    //   buf=this->heap_->Allocate(sizeof(BPlusTreeIndex<GenericKey<8>,RowId,GenericComparator<8>>));
-    //   return new(buf)BPlusTreeIndex<GenericKey<8>,RowId,GenericComparator<8>>(this->meta_data_->GetIndexId(),this->key_schema_,buffer_pool_manager);
-    //   case 16:
-    //   //BPlusTreeIndex<GenericKey<16>,RowId,GenericComparator<16>> *tmp=NULL;
-    //   buf=this->heap_->Allocate(sizeof(BPlusTreeIndex<GenericKey<16>,RowId,GenericComparator<16>>));
-    //   return new(buf)BPlusTreeIndex<GenericKey<16>,RowId,GenericComparator<16>>(this->meta_data_->GetIndexId(),this->key_schema_,buffer_pool_manager);
-    //   case 32:
-    //   //BPlusTreeIndex<GenericKey<32>,RowId,GenericComparator<32>> *tmp=NULL;
-    //   buf=this->heap_->Allocate(sizeof(BPlusTreeIndex<GenericKey<32>,RowId,GenericComparator<32>>));
-    //   return new(buf)BPlusTreeIndex<GenericKey<32>,RowId,GenericComparator<32>>(this->meta_data_->GetIndexId(),this->key_schema_,buffer_pool_manager);
-    // }
-    // return new BPlusTreeIndex<GenericKey<4>,RowId,GenericComparator<4>>(this->meta_data_->GetIndexId(),this->key_schema_,buffer_pool_manager);
+    // return new BPlusTreeIndex<GenericKey<64>,RowId,GenericComparator<64>>(this->meta_data_->GetIndexId(),this->key_schema_,buffer_pool_manager);
+    void *buf;
+    switch(tempSize){
+      case 4:
+      //BPlusTreeIndex<GenericKey<4>,RowId,GenericComparator<4>> *tmp;
+      buf=this->heap_->Allocate(sizeof(BPlusTreeIndex<GenericKey<4>,RowId,GenericComparator<4>>));
+      return new(buf)BPlusTreeIndex<GenericKey<4>,RowId,GenericComparator<4>>(this->meta_data_->GetIndexId(),this->key_schema_,buffer_pool_manager);
+      case 8:
+      //BPlusTreeIndex<GenericKey<8>,RowId,GenericComparator<8>> *tmp=NULL;
+      buf=this->heap_->Allocate(sizeof(BPlusTreeIndex<GenericKey<8>,RowId,GenericComparator<8>>));
+      return new(buf)BPlusTreeIndex<GenericKey<8>,RowId,GenericComparator<8>>(this->meta_data_->GetIndexId(),this->key_schema_,buffer_pool_manager);
+      case 16:
+      //BPlusTreeIndex<GenericKey<16>,RowId,GenericComparator<16>> *tmp=NULL;
+      buf=this->heap_->Allocate(sizeof(BPlusTreeIndex<GenericKey<16>,RowId,GenericComparator<16>>));
+      return new(buf)BPlusTreeIndex<GenericKey<16>,RowId,GenericComparator<16>>(this->meta_data_->GetIndexId(),this->key_schema_,buffer_pool_manager);
+      case 32:
+      //BPlusTreeIndex<GenericKey<32>,RowId,GenericComparator<32>> *tmp=NULL;
+      buf=this->heap_->Allocate(sizeof(BPlusTreeIndex<GenericKey<32>,RowId,GenericComparator<32>>));
+      return new(buf)BPlusTreeIndex<GenericKey<32>,RowId,GenericComparator<32>>(this->meta_data_->GetIndexId(),this->key_schema_,buffer_pool_manager);
+    }
+    return new BPlusTreeIndex<GenericKey<4>,RowId,GenericComparator<4>>(this->meta_data_->GetIndexId(),this->key_schema_,buffer_pool_manager);
   }
 
 private:
