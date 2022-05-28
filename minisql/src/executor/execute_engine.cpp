@@ -583,7 +583,7 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
   return DB_SUCCESS;
 }
 
-//dxp
+//dxp //ok
 dberr_t ExecuteEngine::ExecuteDelete(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteDelete" << std::endl;
@@ -627,15 +627,111 @@ dberr_t ExecuteEngine::ExecuteDelete(pSyntaxNode ast, ExecuteContext *context) {
   return DB_SUCCESS;
 }
 
-//dxp
+//dxp //not finished
 dberr_t ExecuteEngine::ExecuteUpdate(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteUpdate" << std::endl;
 #endif
+  pSyntaxNode UpdateNode = ast->child_; //things after 'from', like 't1'
+  pSyntaxNode SetNode = UpdateNode->next_;////things after 'set', like 'age = 18'
+  pSyntaxNode whereNode = SetNode->next_; //things after 'where', like 'name = a' (may be null)
+  // 1. from
+  string Table_name = UpdateNode->val_; // from table name
+  TableInfo *table_info = nullptr;
+  dberr_t ret = dbs_[current_db_]->catalog_mgr_->GetTable(Table_name, table_info);
+  if(ret == DB_TABLE_NOT_EXIST){
+    cout << "Table not exist." << endl;
+    return DB_FAILED;
+  }
+  assert(ret == DB_SUCCESS);
+  TableSchema *table_schema = table_info->GetSchema();
+  TableHeap *table_heap = table_info->GetTableHeap();
 
+  vector<pSyntaxNode> childs = GetChilds(SetNode); //the things need to modify(parent node)
+  vector<Column *> columns = table_schema->GetColumns();
 
+  // traverse the table
+  TableIterator iter = table_info->GetTableHeap()->Begin(nullptr);
+  int update_count = 0;
 
-  
+  for (; !iter.isNull(); iter++) {
+    Row row = *iter;    //old row
+    // 满足where条件
+    if (!whereNode || GetResultOfNode(whereNode, row, table_schema) == kTrue) {
+      auto row_id = row.GetRowId();
+      std::vector<Field *> &fields = row.GetFields();   //old fields
+
+      //create a new row
+      vector<Field> temp_fields;    //new fields
+      for (uint32_t i = 0; i < table_schema->GetColumnCount(); i++) {
+        int renew = 0;
+        int find_location = -1;
+        //判断是否该属性需要被更新
+        for(size_t j = 0;j<childs.size();j++){
+          if(columns[i]->GetName()==childs[j]->child_->val_){
+            find_location = j;
+            renew = 1;    //在语法树中找到，需要更新
+            break;
+          }
+        }
+        //未从语法树找到，使用原有
+        if(renew == 0){
+          temp_fields.push_back(*fields[i]);
+          continue;
+        }
+        //需要从语法树获取
+        //int
+        if (columns[i]->GetType() == kTypeInt) {
+          if (childs[find_location]->child_->next_->type_ != kNodeNumber || string(childs[find_location]->child_->next_->val_).find(".") != string::npos) {
+            // error if type not match / has float point "."
+            cout << "Wrong type, expected int value for " << columns[i]->GetName() << "." << endl;
+            return DB_FAILED;
+          }
+          int32_t value = atoi(childs[find_location]->child_->next_->val_); 
+          temp_fields.push_back(Field(kTypeInt, value));
+        }
+        //float
+        else if (columns[i]->GetType() == kTypeFloat) {
+          if (childs[find_location]->child_->next_->type_ != kNodeNumber) {
+            // error if type not match
+            cout << "Wrong type, expected float value for " << columns[i]->GetName() << "." << endl;
+            return DB_FAILED;
+          }
+          float value = atof(childs[find_location]->child_->next_->val_);
+          temp_fields.push_back(Field(kTypeFloat, value));
+        }
+        //string
+        else if(columns[i]->GetType() == kTypeChar) {
+          if (childs[find_location]->child_->next_->type_ != kNodeString) {
+            // error if type not match
+            cout << "Wrong type, expected string value for " << columns[i]->GetName() << "." << endl;
+            return DB_FAILED;
+          }
+          // LOG(INFO) << strlen(childs[i]->val_) <<endl; // for test
+          if (strlen(childs[find_location]->child_->next_->val_) > columns[i]->GetLength()) {
+            // error if too long
+            cout << "The string is too long for " << columns[i]->GetName() << "." << endl;
+            cout << "The string is " << strlen(childs[find_location]->child_->next_->val_) << " characters long, but the column's max length is " \
+              << columns[i]->GetLength() << " characters." << endl;
+            return DB_FAILED;
+          }
+          // todo: not sure about what "manage_data" means, currently set to true
+          temp_fields.push_back(Field(kTypeChar, childs[find_location]->child_->next_->val_, strlen(childs[find_location]->child_->next_->val_), true));
+        }
+        else{
+          LOG(ERROR) << "Unsupported type." << endl;
+          return DB_FAILED;
+        }
+      }
+      Row new_row(temp_fields);
+      bool ret_bool = table_heap->UpdateTuple(new_row,row_id,nullptr);
+      if (ret_bool == false){
+        cout << "Update failed." << endl;
+        return DB_FAILED;
+      }
+      update_count++;
+    }
+  }
   return DB_FAILED;
 }
 
