@@ -99,7 +99,6 @@ private:
 private:
   RowId rid_{};
   std::vector<Field *> fields_;   /** Make sure that all fields are created by mem heap */
-  // std::vector<bool> null_bitmap;
   MemHeap *heap_{nullptr};
 };
 
