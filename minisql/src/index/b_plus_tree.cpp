@@ -24,6 +24,7 @@ BPLUSTREE_TYPE::BPlusTree(index_id_t index_id, BufferPoolManager *buffer_pool_ma
   if (ret == false) {
     root_page_id_ = INVALID_PAGE_ID;
   }else{
+    root_page_id_ = 5; // debug // todo remove
     TreeFileManagers mgr("TreeRebuild_");  // debug // todo remove
     PrintTree(mgr[1]);  // debug // todo remove
   }
