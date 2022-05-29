@@ -2,11 +2,10 @@
 #include "common/instance.h"
 #include "gtest/gtest.h"
 #include "utils/utils.h"
-#include "utils/tree_file_mgr.h" // debug // todo remove
 
 static string db_file_name = "catalog_test.db";
 
-TEST(CatalogTest, DISABLED_CatalogMetaTest) {
+TEST(CatalogTest, CatalogMetaTest) {
   SimpleMemHeap heap;
   char *buf = reinterpret_cast<char *>(heap.Allocate(PAGE_SIZE));
   CatalogMeta *meta = CatalogMeta::NewInstance(&heap);
@@ -38,7 +37,7 @@ TEST(CatalogTest, DISABLED_CatalogMetaTest) {
   }
 }
 
-TEST(CatalogTest, DISABLED_CatalogTableTest) {
+TEST(CatalogTest, CatalogTableTest) {
   SimpleMemHeap heap;
   /** Stage 2: Testing simple operation */
   auto db_01 = new DBStorageEngine(db_file_name, true);
@@ -69,7 +68,7 @@ TEST(CatalogTest, DISABLED_CatalogTableTest) {
   delete db_02;
 }
 
-TEST(CatalogTest, DISABLED_CatalogIndexTest) {
+TEST(CatalogTest, CatalogIndexTest) {
   SimpleMemHeap heap;
   /** Stage 1: Testing simple operation */
   auto db_01 = new DBStorageEngine(db_file_name, true);
@@ -124,8 +123,6 @@ TEST(CatalogTest, DISABLED_CatalogIndexTest) {
   ASSERT_EQ(DB_INDEX_ALREADY_EXIST, r4);
   IndexInfo *index_info_02 = nullptr;
   ASSERT_EQ(DB_SUCCESS, catalog_02->GetIndex("table-1", "index-1", index_info_02));
-  // TreeFileManagers PT("AfterGetIndex");
-  // index_info_02->GetIndex()->PrintTree(PT[0]);
   std::vector<RowId> ret_02;
   for (int i = 0; i < 10; i++) {
     std::vector<Field> fields{
@@ -139,57 +136,3 @@ TEST(CatalogTest, DISABLED_CatalogIndexTest) {
   }
   delete db_02;
 }
-
-/*
-
-# .gdbinit
-
-# create $arg0 flags
-define create_flags
-  set $i = 0
-  while $i < $arg0
-    eval "set $f%d = 0", $i
-    set $i = $i + 1
-  end
-  p "Created %d flags", $arg0
-end
-
-# set Flag $arg0 (0 means clear, 233 means set)
-define set_flag
-  eval "set $f%d = 233", $arg0
-  p "Flag $f%d set", $arg0
-  continue
-end
-
-# format: "set_on bnum" / "set_on bnum flagNum"
-# set the flag when break at bnum
-define set_on
-  set $i = 0
-  if $argc == 2
-    set $i = $arg1
-  end
-  commends $arg0
-    set_flag $i
-  end
-  p "Will set Flag %d on Break &d", $i, $arg0
-end
-
-# format: "judge_on bnum" / "judge_on bnum flagNum"
-# judge the flag on break bnum
-define judge_on
-  set $i = 0
-  if $argc == 2
-    set $i = $arg1
-  end
-  eval "condition %d $f%d == 233", $arg0, $i
-  p "Will judge Flag %d on Break &d", $i, $arg0
-end
-
-alias so set_on
-alias jo judge_on
-
-# main:
-# create 100 flags (f1, f2, ... f100)
-create_flags 100
-
-*/

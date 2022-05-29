@@ -15,21 +15,14 @@ BPLUSTREE_TYPE::BPlusTree(index_id_t index_id, BufferPoolManager *buffer_pool_ma
           comparator_(comparator),
           leaf_max_size_(leaf_max_size),
           internal_max_size_(internal_max_size) {
-
   IndexRootsPage *index_roots_page = reinterpret_cast<IndexRootsPage *>(
                                         buffer_pool_manager_->FetchPage(INDEX_ROOTS_PAGE_ID)->GetData()
                                         );
   bool ret = index_roots_page->GetRootId(index_id_, &root_page_id_);
-
   if (ret == false) {
     root_page_id_ = INVALID_PAGE_ID;
-  }else{
-    root_page_id_ = 5; // debug // todo remove
-    TreeFileManagers mgr("TreeRebuild_");  // debug // todo remove
-    PrintTree(mgr[1]);  // debug // todo remove
   }
   buffer_pool_manager_->UnpinPage(INDEX_ROOTS_PAGE_ID, false);
-  
 }
 
 INDEX_TEMPLATE_ARGUMENTS
