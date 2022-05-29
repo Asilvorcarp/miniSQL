@@ -66,7 +66,6 @@ public:
     out << "digraph G {" << std::endl;
     Page *root_page = buffer_pool_manager_->FetchPage(root_page_id_);
     BPlusTreePage *node = reinterpret_cast<BPlusTreePage *>(root_page);
-    UpdateRootPageId(); // debug // todo remove
     ToGraph(node, buffer_pool_manager_, out);
     out << "}" << std::endl;
   }
