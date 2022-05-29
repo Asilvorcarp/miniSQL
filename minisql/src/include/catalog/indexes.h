@@ -121,8 +121,13 @@ private:
       //BPlusTreeIndex<GenericKey<32>,RowId,GenericComparator<32>> *tmp=NULL;
       buf=this->heap_->Allocate(sizeof(BPlusTreeIndex<GenericKey<32>,RowId,GenericComparator<32>>));
       return new(buf)BPlusTreeIndex<GenericKey<32>,RowId,GenericComparator<32>>(this->meta_data_->GetIndexId(),this->key_schema_,buffer_pool_manager);
+      case 64:
+      //BPlusTreeIndex<GenericKey<64>,RowId,GenericComparator<64>> *tmp=NULL;
+      buf=this->heap_->Allocate(sizeof(BPlusTreeIndex<GenericKey<64>,RowId,GenericComparator<64>>));
+      return new(buf)BPlusTreeIndex<GenericKey<64>,RowId,GenericComparator<64>>(this->meta_data_->GetIndexId(),this->key_schema_,buffer_pool_manager);
     }
-    return new BPlusTreeIndex<GenericKey<64>,RowId,GenericComparator<64>>(this->meta_data_->GetIndexId(),this->key_schema_,buffer_pool_manager);
+    LOG(FATAL) << "key length not enough, max 64, but needs" << tempSize << endl;
+    return nullptr;
   }
 
 private:

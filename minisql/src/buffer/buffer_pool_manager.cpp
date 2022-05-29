@@ -55,13 +55,13 @@ Page *BufferPoolManager::FetchPage(page_id_t page_id) {
     }
 
     // 2.     If R is dirty, write it back to the disk.
-    page_id_t R_page_id = page_table_[frame_id];
+    page_id_t R_page_id = pages_[frame_id].GetPageId();
     if (pages_[frame_id].IsDirty()) 
       FlushPage(R_page_id);
 
     // 3.     Delete R from the page table and insert P.
-    page_table_.erase(frame_id);
-    page_table_[frame_id] = page_id;
+    page_table_.erase(R_page_id);
+    page_table_[page_id] = frame_id;
 
     // 4.     Update P's metadata, read in the page content from disk, and then return a pointer to P.
     Page *P = &pages_[frame_id];
