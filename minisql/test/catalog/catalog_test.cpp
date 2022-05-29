@@ -5,7 +5,7 @@
 
 static string db_file_name = "catalog_test.db";
 
-TEST(CatalogTest, CatalogMetaTest) {
+TEST(CatalogTest, DISABLED_CatalogMetaTest) {
   SimpleMemHeap heap;
   char *buf = reinterpret_cast<char *>(heap.Allocate(PAGE_SIZE));
   CatalogMeta *meta = CatalogMeta::NewInstance(&heap);
@@ -37,7 +37,7 @@ TEST(CatalogTest, CatalogMetaTest) {
   }
 }
 
-TEST(CatalogTest, CatalogTableTest) {
+TEST(CatalogTest, DISABLED_CatalogTableTest) {
   SimpleMemHeap heap;
   /** Stage 2: Testing simple operation */
   auto db_01 = new DBStorageEngine(db_file_name, true);
@@ -68,7 +68,7 @@ TEST(CatalogTest, CatalogTableTest) {
   delete db_02;
 }
 
-TEST(CatalogTest, CatalogIndexTest) {
+TEST(CatalogTest, DISABLED_CatalogIndexTest) {
   SimpleMemHeap heap;
   /** Stage 1: Testing simple operation */
   auto db_01 = new DBStorageEngine(db_file_name, true);
