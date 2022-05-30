@@ -70,7 +70,7 @@ dberr_t ExecuteEngine::ExecuteCreateDatabase(pSyntaxNode ast, ExecuteContext *co
   LOG(INFO) << "Create DB: " << dbName << std::endl;
 #endif
   if (dbs_.find(dbName) != dbs_.end()) {
-    cout << "Database " << dbName << " already exists." << endl;
+    cout << "Error: Database " << dbName << " already exists." << endl;
     return DB_FAILED;
   }
   dbs_.insert(std::make_pair(dbName, new DBStorageEngine(dbName)));
@@ -86,7 +86,7 @@ dberr_t ExecuteEngine::ExecuteDropDatabase(pSyntaxNode ast, ExecuteContext *cont
   LOG(INFO) << "Drop DB: " << dbName << std::endl;
 #endif
   if (dbs_.find(dbName) == dbs_.end()) {
-    cout << "Database " << dbName << " does not exist." << endl;
+    cout << "Error: Database " << dbName << " does not exist." << endl;
     return DB_FAILED;
   }
   delete dbs_[dbName];
@@ -116,7 +116,7 @@ dberr_t ExecuteEngine::ExecuteUseDatabase(pSyntaxNode ast, ExecuteContext *conte
   LOG(INFO) << "Use DB: " << dbName << std::endl;
 #endif
   if (dbs_.find(dbName) == dbs_.end()) {
-    cout << "Database " << dbName << " does not exist." << endl;
+    cout << "Error: Database " << dbName << " does not exist." << endl;
     return DB_FAILED;
   }
   current_db_ = dbName;
@@ -172,12 +172,12 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
       string lengthString = columnDef->child_->next_->child_->val_;
       // error if length not valid (float or <=0)
       if (lengthString.find('.') != string::npos) {
-        cout << "Invalid length for char type." << endl;
+        cout << "Error: Invalid length for char type." << endl;
         return DB_FAILED;
       }
       int length = stoi(lengthString);
       if (length <= 0) {
-        cout << "Invalid length for char type." << endl;
+        cout << "Error: Invalid length for char type." << endl;
         return DB_FAILED;
       }
       columns.push_back(new Column(columnName, TypeId::kTypeChar, length, columnIndex, isNullable, isUnique));
@@ -185,7 +185,7 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
     ////   int length = stoi(columnDef->child_->next_->child_->val_);
     ////   columns.push_back(new Column(columnName, TypeId::KMaxTypeId, length, columnIndex, isNullable, isUnique));
     } else {
-      cout << "Invalid column type: " << columnType << endl;
+      cout << "Error: Invalid column type: " << columnType << endl;
       return DB_FAILED; 
     }
     columnIndex++;
@@ -208,12 +208,12 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
         }
         catch(const std::out_of_range& e)
         { // not found
-          cout << "Primary key " << string(identifier->val_) << " does not exist." << endl;
+          cout << "Error: Primary key " << string(identifier->val_) << " does not exist." << endl;
           return DB_FAILED; // DB_KEY_NOT_FOUND;
         }
       }
       if (primaryKeyIndexs.size() == 0) {
-        cout << "Empty primary key list." << endl;
+        cout << "Error: Empty primary key list." << endl;
         return DB_FAILED; 
       }
     }else{
@@ -228,10 +228,10 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
   dberr_t ret = cat->CreateTable(tableName, table_schema,
                      nullptr, table_info, primaryKeyIndexs);
   if (ret == DB_TABLE_ALREADY_EXIST) {
-    cout << "Table " << tableName << " already exists." << endl;
+    cout << "Error: Table " << tableName << " already exists." << endl;
     return DB_FAILED;
   } else if (ret == DB_FAILED) {
-    cout << "Create table failed." << endl;
+    cout << "Error: Create table failed." << endl;
     return DB_FAILED;
   }
   assert(ret == DB_SUCCESS);
@@ -261,11 +261,11 @@ dberr_t ExecuteEngine::ExecuteDropTable(pSyntaxNode ast, ExecuteContext *context
   LOG(INFO) << "Drop Table:" << tableName << std::endl;
 #endif
   if(dbs_[current_db_]->catalog_mgr_->DropTable(tableName)==DB_SUCCESS){
-    cout << "Table " << tableName << " dropped." << endl;
+    cout << "Error: Table " << tableName << " dropped." << endl;
     return DB_SUCCESS;
   }
   else{
-    cout << "Don't find " << tableName << "." << endl;
+    cout << "Error: Can't find " << tableName << "." << endl;
     return DB_TABLE_NOT_EXIST;
   }
   return dbs_[current_db_]->catalog_mgr_->DropTable(tableName);
@@ -309,20 +309,20 @@ dberr_t ExecuteEngine::ExecuteCreateIndex(pSyntaxNode ast, ExecuteContext *conte
   dberr_t ret = dbs_[current_db_]->catalog_mgr_->CreateIndex(tableName, indexName, 
                                               index_keys, nullptr, index_info);
   if (ret == DB_TABLE_NOT_EXIST) {
-    cout << "Table " << tableName << " does not exist." << endl;
+    cout << "Error: Table " << tableName << " does not exist." << endl;
     return DB_FAILED;
   }else if (ret == DB_INDEX_ALREADY_EXIST) {
-    cout << "Index " << indexName << " already exists." << endl;
+    cout << "Error: Index " << indexName << " already exists." << endl;
     return DB_FAILED;
   }else if (ret == DB_COLUMN_NAME_NOT_EXIST) {
-    cout << "Key does not exist." << endl;
+    cout << "Error: Key does not exist." << endl;
     return DB_FAILED;
   }else if (ret == DB_COLUMN_NOT_UNIQUE) {
     // 只能在唯一键/主键上建立索引
-    cout << "Key is not unique or primary." << endl;
+    cout << "Error: Key is not unique or primary." << endl;
     return DB_FAILED;
   } else if (ret == DB_FAILED) {
-    cout << "Create index failed." << endl;
+    cout << "Error: Create index failed." << endl;
     return DB_FAILED;
   }
   assert(ret == DB_SUCCESS);
@@ -455,7 +455,7 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
   TableInfo *table_info = nullptr;
   dberr_t ret = dbs_[current_db_]->catalog_mgr_->GetTable(fromTable, table_info);
   if(ret == DB_TABLE_NOT_EXIST){
-    cout << "Table not exist." << endl;
+    cout << "Error: Table not exist." << endl;
     return DB_FAILED;
   }
   assert(ret == DB_SUCCESS);
@@ -479,7 +479,7 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
       uint32_t index;
       dberr_t ret = table_schema->GetColumnIndex(columnName, index);
       if (ret == DB_COLUMN_NAME_NOT_EXIST){
-        cout << "Select column " << columnName << " not exist." << endl;
+        cout << "Error: Select column " << columnName << " not exist." << endl;
         return DB_FAILED;
       }else{
         assert(ret == DB_SUCCESS);
@@ -553,7 +553,7 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
   TableInfo *table_info = nullptr;
   dberr_t ret = dbs_[current_db_]->catalog_mgr_->GetTable(tableName, table_info);
   if(ret == DB_TABLE_NOT_EXIST){
-    cout << "Table not exist." << endl;
+    cout << "Error: Table not exist." << endl;
     return DB_FAILED;
   }
   assert(ret == DB_SUCCESS);
@@ -564,7 +564,7 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
   vector<pSyntaxNode> childs = GetChilds(valuesNode); 
   // ensure the same size of values & columns
   if (childs.size() != table_schema->GetColumnCount()) {
-    cout << "Column number not match." << endl;
+    cout << "Error: Column number not match." << endl;
     return DB_FAILED;
   }
   vector<Column *> columns = table_schema->GetColumns();
@@ -572,14 +572,14 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
   for (uint32_t i = 0; i < childs.size(); i++) {
     if (childs[i]->type_ == kNodeNull){
       if ( !columns[i]->IsNullable() ) {
-        cout << "Null value is not allowed for " << columns[i]->GetName() << "." << endl;
+        cout << "Error: Null value is not allowed for " << columns[i]->GetName() << "." << endl;
         return DB_FAILED;
       }
       fields.push_back(Field(columns[i]->GetType()));
     }else if (columns[i]->GetType() == kTypeInt) {
       if (childs[i]->type_ != kNodeNumber || string(childs[i]->val_).find(".") != string::npos) {
         // error if type not match / has float point "."
-        cout << "Wrong type, expected int value for " << columns[i]->GetName() << "." << endl;
+        cout << "Error: Wrong type, expected int value for " << columns[i]->GetName() << "." << endl;
         return DB_FAILED;
       }
       int32_t value = atoi(childs[i]->val_); 
@@ -587,7 +587,7 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
     }else if (columns[i]->GetType() == kTypeFloat) {
       if (childs[i]->type_ != kNodeNumber) {
         // error if type not match
-        cout << "Wrong type, expected float value for " << columns[i]->GetName() << "." << endl;
+        cout << "Error: Wrong type, expected float value for " << columns[i]->GetName() << "." << endl;
         return DB_FAILED;
       }
       float value = atof(childs[i]->val_);
@@ -595,13 +595,13 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
     }else if(columns[i]->GetType() == kTypeChar) {
       if (childs[i]->type_ != kNodeString) {
         // error if type not match
-        cout << "Wrong type, expected string value for " << columns[i]->GetName() << "." << endl;
+        cout << "Error: Wrong type, expected string value for " << columns[i]->GetName() << "." << endl;
         return DB_FAILED;
       }
       // LOG(INFO) << strlen(childs[i]->val_) <<endl; // for test
       if (strlen(childs[i]->val_) > columns[i]->GetLength()) {
         // error if too long
-        cout << "The string is too long for " << columns[i]->GetName() << "." << endl;
+        cout << "Error: The string is too long for " << columns[i]->GetName() << "." << endl;
         cout << "The string is " << strlen(childs[i]->val_) << " characters long, but the column's max length is " \
              << columns[i]->GetLength() << " characters." << endl;
         return DB_FAILED;
@@ -619,13 +619,13 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
   auto cat = dbs_[current_db_]->catalog_mgr_;
   ret = cat->Insert(table_info, row, nullptr);
   if (ret == DB_PK_DUPLICATE){
-    cout << "Primary key duplicate." << endl;
+    cout << "Error: Primary key duplicate." << endl;
     return DB_FAILED;
   }else if (ret == DB_UNI_KEY_DUPLICATE){
-    cout << "Unique key duplicate." << endl;
+    cout << "Error: Unique key duplicate." << endl;
     return DB_FAILED;
   }else if (ret == DB_TUPLE_TOO_LARGE){
-    cout << "Tuple too large." << endl;
+    cout << "Error: Tuple too large." << endl;
     return DB_FAILED;
   }
   assert(ret == DB_SUCCESS);
@@ -648,7 +648,7 @@ dberr_t ExecuteEngine::ExecuteDelete(pSyntaxNode ast, ExecuteContext *context) {
   TableInfo *table_info = nullptr;
   dberr_t ret = dbs_[current_db_]->catalog_mgr_->GetTable(fromTable, table_info);
   if(ret == DB_TABLE_NOT_EXIST){
-    cout << "Table not exist." << endl;
+    cout << "Error: Table not exist." << endl;
     return DB_FAILED;
   }
   assert(ret == DB_SUCCESS);
@@ -667,7 +667,7 @@ dberr_t ExecuteEngine::ExecuteDelete(pSyntaxNode ast, ExecuteContext *context) {
       auto row_id = row.GetRowId();
       bool ret_bool = table_heap->MarkDelete(row_id,nullptr);
       if (ret_bool == false){
-        cout << "Delete failed." << endl;
+        cout << "Error: Delete failed." << endl;
         return DB_FAILED;
       }
       delete_count++;
@@ -690,7 +690,7 @@ dberr_t ExecuteEngine::ExecuteUpdate(pSyntaxNode ast, ExecuteContext *context) {
   TableInfo *table_info = nullptr;
   dberr_t ret = dbs_[current_db_]->catalog_mgr_->GetTable(Table_name, table_info);
   if(ret == DB_TABLE_NOT_EXIST){
-    cout << "Table not exist." << endl;
+    cout << "Error: Table not exist." << endl;
     return DB_FAILED;
   }
   assert(ret == DB_SUCCESS);
@@ -734,7 +734,7 @@ dberr_t ExecuteEngine::ExecuteUpdate(pSyntaxNode ast, ExecuteContext *context) {
         if (columns[i]->GetType() == kTypeInt) {
           if (childs[find_location]->child_->next_->type_ != kNodeNumber || string(childs[find_location]->child_->next_->val_).find(".") != string::npos) {
             // error if type not match / has float point "."
-            cout << "Wrong type, expected int value for " << columns[i]->GetName() << "." << endl;
+            cout << "Error: Wrong type, expected int value for " << columns[i]->GetName() << "." << endl;
             return DB_FAILED;
           }
           int32_t value = atoi(childs[find_location]->child_->next_->val_); 
@@ -744,7 +744,7 @@ dberr_t ExecuteEngine::ExecuteUpdate(pSyntaxNode ast, ExecuteContext *context) {
         else if (columns[i]->GetType() == kTypeFloat) {
           if (childs[find_location]->child_->next_->type_ != kNodeNumber) {
             // error if type not match
-            cout << "Wrong type, expected float value for " << columns[i]->GetName() << "." << endl;
+            cout << "Error: Wrong type, expected float value for " << columns[i]->GetName() << "." << endl;
             return DB_FAILED;
           }
           float value = atof(childs[find_location]->child_->next_->val_);
@@ -754,14 +754,14 @@ dberr_t ExecuteEngine::ExecuteUpdate(pSyntaxNode ast, ExecuteContext *context) {
         else if(columns[i]->GetType() == kTypeChar) {
           if (childs[find_location]->child_->next_->type_ != kNodeString) {
             // error if type not match
-            cout << "Wrong type, expected string value for " << columns[i]->GetName() << "." << endl;
+            cout << "Error: Wrong type, expected string value for " << columns[i]->GetName() << "." << endl;
             return DB_FAILED;
           }
           // LOG(INFO) << strlen(childs[i]->val_) <<endl; // for test
           if (strlen(childs[find_location]->child_->next_->val_) > columns[i]->GetLength()) {
             // error if too long
-            cout << "The string is too long for " << columns[i]->GetName() << "." << endl;
-            cout << "The string is " << strlen(childs[find_location]->child_->next_->val_) << " characters long, but the column's max length is " \
+            cout << "Error: The string is too long for " << columns[i]->GetName() << "." << endl;
+            cout << "Error: The string is " << strlen(childs[find_location]->child_->next_->val_) << " characters long, but the column's max length is " \
               << columns[i]->GetLength() << " characters." << endl;
             return DB_FAILED;
           }
@@ -776,7 +776,7 @@ dberr_t ExecuteEngine::ExecuteUpdate(pSyntaxNode ast, ExecuteContext *context) {
       Row new_row(temp_fields);
       bool ret_bool = table_heap->UpdateTuple(new_row,row_id,nullptr);
       if (ret_bool == false){
-        cout << "Update failed." << endl;
+        cout << "Error: Update failed." << endl;
         return DB_FAILED;
       }
       update_count++;
