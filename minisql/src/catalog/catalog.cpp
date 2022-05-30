@@ -1,4 +1,5 @@
 #include "catalog/catalog.h"
+#include <algorithm>
 
 void CatalogMeta::SerializeTo(char *buf) const {
   uint32_t ofs=0;
@@ -158,6 +159,18 @@ dberr_t CatalogManager::CreateIndex(const std::string &table_name, const string 
           return DB_COLUMN_NAME_NOT_EXIST;
         }else{
           tmp.push_back(index_id);
+        }
+      }
+      // checking if it's {primary keys}
+      auto pkIndexs = tf->GetPrimaryKeyIndexs();
+      sort(tmp.begin(), tmp.end());
+      sort(pkIndexs.begin(), pkIndexs.end());
+      bool isPrimaryKey = (tmp == pkIndexs);
+      if (!isPrimaryKey){
+        for (auto &i : tmp) {
+          if(col[i]->IsUnique()==false){
+            return DB_COLUMN_NOT_UNIQUE;
+          }
         }
       }
       IndexMetadata *im=IndexMetadata::Create(this->catalog_meta_->GetNextIndexId(),index_name,this->table_names_.at(table_name),tmp,this->heap_); 

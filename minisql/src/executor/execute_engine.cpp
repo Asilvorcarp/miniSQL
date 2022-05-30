@@ -152,6 +152,7 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
   map<string, uint32_t> columnNameToIndex;
   uint32_t columnIndex = 0;
   pSyntaxNode columnDef;
+  vector<string> uniqueKeys = {};
   for (columnDef = columnDefList->child_; columnDef->type_ == kNodeColumnDefinition; columnDef = columnDef->next_) {
     bool isUnique = false;
     if (columnDef->val_) { // ensure pointer not null
@@ -160,6 +161,8 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
     bool isNullable = true; // "not null" can only be specified by "primary key" later
     string columnName = columnDef->child_->val_;
     string columnType = columnDef->child_->next_->val_;
+    if (isUnique)
+      uniqueKeys.push_back(columnName);
     columnNameToIndex.insert(std::make_pair(columnName, columnIndex));
     if (columnType == "int") {
       columns.push_back(new Column(columnName, TypeId::kTypeInt, columnIndex, isNullable, isUnique));
@@ -189,6 +192,7 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
   } 
   // columnDef is now after all column definition (now: NULL or columnList)
   pSyntaxNode columnList;
+  vector<string> primaryKeys = {};
   vector<uint32_t> primaryKeyIndexs = {};
   for (columnList = columnDef; columnList && columnList->type_ == kNodeColumnList; columnList = columnList->next_) {
     // get primaryKeyIndexs
@@ -197,6 +201,7 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
         // try to find the column in the column list
         try
         {
+          primaryKeys.push_back(identifier->val_);
           uint32_t indexInColumns = columnNameToIndex.at(string(identifier->val_));
           // found: mark "unique & not null" for the primary key
           primaryKeyIndexs.push_back(indexInColumns);
@@ -229,6 +234,20 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
     return DB_FAILED;
   }
   assert(ret == DB_SUCCESS);
+  // create index for primary key
+  IndexInfo *pkIndexInfo = nullptr;
+  string pkIndexName = "_" + tableName + "_PK_";
+  dberr_t pk_ret = dbs_[current_db_]->catalog_mgr_->CreateIndex(tableName, pkIndexName, 
+                                              primaryKeys, nullptr, pkIndexInfo);
+  assert(pk_ret == DB_SUCCESS);
+  // create index for unique key
+  for (auto &uniqueKey : uniqueKeys) {
+    IndexInfo *uniqueIndexInfo = nullptr;
+    string uniqueIndexName = "_" + tableName + "_UNI_" + uniqueKey + "_";
+    dberr_t uni_ret = dbs_[current_db_]->catalog_mgr_->CreateIndex(tableName, uniqueIndexName, 
+                                                {uniqueKey}, nullptr, uniqueIndexInfo);
+    assert(uni_ret == DB_SUCCESS);
+  }
   cout << "Table " << tableName << " created." << endl;
   return DB_SUCCESS;
 }
@@ -251,25 +270,28 @@ dberr_t ExecuteEngine::ExecuteDropTable(pSyntaxNode ast, ExecuteContext *context
   return dbs_[current_db_]->catalog_mgr_->DropTable(tableName);
 }
 
-//dxp
 dberr_t ExecuteEngine::ExecuteShowIndexes(pSyntaxNode ast, ExecuteContext *context) {
-  string tableName = ast->child_->val_; //找表的名字，根据语法树。//SHOW INDEX FROM <表名>
+  // show all indexs (parser dont't support "show index from <Table>")
 #ifdef ENABLE_EXECUTE_DEBUG
-  LOG(INFO) << "ExecuteShowIndexes" << std::endl;
+  LOG(INFO) << "ExecuteShowIndexes" << endl;
 #endif
-  vector<IndexInfo *> indexes;
-  dbs_[current_db_]->catalog_mgr_->GetTableIndexes(tableName,indexes);
-  if(indexes.empty()){
-    cout << "No index exists." << std::endl;
-    return DB_SUCCESS;
+  auto table_names = dbs_[current_db_]->catalog_mgr_->GetAllTableNames();
+  vector<IndexInfo *> allIndexes;
+  for (auto &table_name : table_names) {
+    vector<IndexInfo *> indexes;
+    dbs_[current_db_]->catalog_mgr_->GetTableIndexes(table_name, indexes);
+    if(indexes.empty()){
+      cout << "No index exists." << endl;
+      return DB_SUCCESS;
+    }
+    allIndexes.insert(allIndexes.end(), indexes.begin(), indexes.end());
   }
-  for(vector<IndexInfo *>::iterator its= indexes.begin();its!=indexes.end();its++){
-    cout <<(*its)->GetIndexName()<<std::endl;
+  for(auto its = allIndexes.begin(); its!=allIndexes.end(); its++){
+    cout << (*its)->GetIndexName() << endl;
   }
   return DB_SUCCESS;
 }
 
-//dxp
 dberr_t ExecuteEngine::ExecuteCreateIndex(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteCreateIndex" << std::endl;
@@ -282,9 +304,29 @@ dberr_t ExecuteEngine::ExecuteCreateIndex(pSyntaxNode ast, ExecuteContext *conte
     index_keys.push_back(temp_pointer->val_);
     temp_pointer = temp_pointer->next_;
   }
-  //not sure ！！参数列表中的Transaction *txn,IndexInfo *&index_info 不知道怎么传 
-  IndexInfo * nuknow;
-  return dbs_[current_db_]->catalog_mgr_->CreateIndex(tableName,indexName,index_keys,nullptr,nuknow);
+  IndexInfo *index_info = nullptr;
+  dberr_t ret = dbs_[current_db_]->catalog_mgr_->CreateIndex(tableName, indexName, 
+                                              index_keys, nullptr, index_info);
+  if (ret == DB_TABLE_NOT_EXIST) {
+    cout << "Table " << tableName << " does not exist." << endl;
+    return DB_FAILED;
+  }else if (ret == DB_INDEX_ALREADY_EXIST) {
+    cout << "Index " << indexName << " already exists." << endl;
+    return DB_FAILED;
+  }else if (ret == DB_COLUMN_NAME_NOT_EXIST) {
+    cout << "Key does not exist." << endl;
+    return DB_FAILED;
+  }else if (ret == DB_COLUMN_NOT_UNIQUE) {
+    // 只能在唯一键/主键上建立索引
+    cout << "Key is not unique or primary." << endl;
+    return DB_FAILED;
+  } else if (ret == DB_FAILED) {
+    cout << "Create index failed." << endl;
+    return DB_FAILED;
+  }
+  assert(ret == DB_SUCCESS);
+  cout << "Created " << "index " << indexName << endl;
+  return DB_SUCCESS;
 }
 
 //dxp not finished  //好像只能drop index 索引名； 但调用需要知道表名；
@@ -445,6 +487,7 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
     }
   }
 
+  // todo: 使用index加速
   // traverse the table
   TableIterator iter = table_info->GetTableHeap()->Begin(nullptr);
   // TableIterator iter_end = table_info->GetTableHeap()->End(); // todo: not using it for bug in End()
@@ -573,7 +616,7 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
   Row row(fields);
 
   // 4. insert
-  // todo: implement things about primary key (error if Equals) inside TableHeap
+  // todo: doing, implement things about primary key (error if Equals) inside TableHeap
   bool ret_bool = table_heap->InsertTuple(row, nullptr);
   if (ret_bool == false){ // todo: more error type like duplicated primary key
     cout << "Insert failed." << endl;

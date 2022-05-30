@@ -84,6 +84,14 @@ public:
 
   dberr_t GetTables(std::vector<TableInfo *> &tables) const;
 
+  vector<string> GetAllTableNames() const {
+    vector<string> table_names;
+    for (auto &it : table_names_) {
+      table_names.push_back(it.first);
+    }
+    return table_names;
+  }
+
   dberr_t CreateIndex(const std::string &table_name, const std::string &index_name,
                       const std::vector<std::string> &index_keys, Transaction *txn,
                       IndexInfo *&index_info);

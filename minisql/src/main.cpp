@@ -54,7 +54,14 @@ int main(int argc, char **argv) {
       // read from file
       memset(cmd, 0, buf_size);
       cmdIn.getline(cmd, buf_size);
-      cout << "[CMD] " << cmd << endl;
+      if (cmd[0] == '\0') {
+        continue;
+      }
+      if (cmd[0] == '-') {
+        cout << "\n[COMMENT] " << cmd << endl;
+        continue;
+      }
+      cout << "\n[CMD] " << cmd << endl;
     #else
       // read from buffer
       InputCommand(cmd, buf_size);
