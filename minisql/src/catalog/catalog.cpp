@@ -321,7 +321,14 @@ dberr_t CatalogManager::Insert(TableInfo* &tf, Row &row, Transaction *txn) {
   }
   // maintain auto-gen index
   pkIndexInfo->GetIndex()->InsertEntry(pk, row.GetRowId(), txn);
+  for (auto uniKeyNI : uniKeyNIs) {
+    Row uni(row, {uniKeyNI.second});
+    IndexInfo *uniIndexInfo;
+    this->GetUniIndex(tf->GetTableName(), uniKeyNI.first, uniIndexInfo);
+    uniIndexInfo->GetIndex()->InsertEntry(uni, row.GetRowId(), txn);
+  }
   // todo maintain user specified index
+  // ...
   return DB_SUCCESS;
 }
 
