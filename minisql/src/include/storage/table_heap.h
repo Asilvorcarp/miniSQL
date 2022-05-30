@@ -25,9 +25,6 @@ public:
 
   ~TableHeap() {}
 
-  // new: insert with primary key & unique check
-  dberr_t Insert(Row &row, Transaction *txn);
-
   /**
    * Insert a tuple into the table. If the tuple is too large (>= page_size), return false.
    * @param[in/out] row Tuple Row to insert, the rid of the inserted tuple is wrapped in object row

@@ -286,3 +286,52 @@ dberr_t CatalogManager::GetTable(const table_id_t table_id, TableInfo *&table_in
   // ASSERT(false, "Not Implemented yet");
   return DB_FAILED;
 }
+
+// new: insert with checking primary key & unique
+// ret: DB_PK_DUPLICATE, DB_UNI_KEY_DUPLICATE, DB_TUPLE_TOO_LARGE, DB_SUCCESS
+dberr_t CatalogManager::Insert(TableInfo* &tf, Row &row, Transaction *txn) {
+  // check primary key
+  auto pkIndexes = tf->GetPrimaryKeyIndexs();
+  Row pk(row, pkIndexes);
+  IndexInfo *pkIndexInfo;
+  this->GetPKIndex(tf->GetTableName(), pkIndexInfo);
+  vector<RowId> scanRet;
+  dberr_t ret = pkIndexInfo->GetIndex()->ScanKey(pk, scanRet, txn);
+  if (ret != DB_KEY_NOT_FOUND){
+    // error: primary key duplicated
+    return DB_PK_DUPLICATE;
+  }
+  assert(ret == DB_KEY_NOT_FOUND);
+  // check unique key
+  auto uniKeyNIs = tf->GetUniqueKeyNIs();
+  for (auto uniKeyNI : uniKeyNIs) {
+    Row uni(row, {uniKeyNI.second});
+    IndexInfo *uniIndexInfo;
+    this->GetUniIndex(tf->GetTableName(), uniKeyNI.first, uniIndexInfo);
+    ret = uniIndexInfo->GetIndex()->ScanKey(uni, scanRet, txn);
+    if (ret != DB_KEY_NOT_FOUND) {
+      // error: unique key duplicated
+      return DB_UNI_KEY_DUPLICATE;
+    }
+  }
+  bool ret_bool = tf->GetTableHeap()->InsertTuple(row, nullptr);
+  if (!ret_bool) {
+    // error: the tuple is too large (>= page_size)
+    return DB_TUPLE_TOO_LARGE;
+  }
+  // todo maintain index
+    // index_info->GetIndex()->InsertEntry(row, rid, nullptr))
+  return DB_SUCCESS;
+}
+
+// new: todo
+dberr_t CatalogManager::Update(CatalogManager* &cat, Row &row, Transaction *txn) {
+  // todo
+  return DB_SUCCESS;
+}
+
+// new: todo
+dberr_t CatalogManager::Delete(CatalogManager* &cat, Row &row, Transaction *txn) {
+  // todo
+  return DB_SUCCESS;
+}

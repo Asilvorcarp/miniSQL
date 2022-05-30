@@ -62,6 +62,21 @@ public:
     }
   }
 
+  // new: copy part of fields, used for generate key of index
+  Row(const Row &other, const vector<uint32_t> &key_map) : heap_(new SimpleMemHeap) {
+    if (!fields_.empty()) {
+      for (auto &field : fields_) {
+        heap_->Free(field);
+      }
+      fields_.clear();
+    }
+    rid_ = other.rid_;
+    for (auto &i : key_map) {
+      void *buf = heap_->Allocate(sizeof(Field));
+      fields_.push_back(new(buf)Field(*other.fields_[i]));
+    }    
+  }
+
   virtual ~Row() {
     delete heap_;
   }

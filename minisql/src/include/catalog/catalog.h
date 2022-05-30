@@ -98,11 +98,39 @@ public:
 
   dberr_t GetIndex(const std::string &table_name, const std::string &index_name, IndexInfo *&index_info) const;
 
+  // new: get primary key index name of a table
+  static std::string GetPKIndexName(const std::string &table_name) {
+    return "_" + table_name + "_PK_";
+  }
+
+  // new: get unique key index name of a table
+  static std::string GetUniIndexName(const std::string &table_name, const std::string &uniqueKey) {
+    return "_" + table_name + "_UNI_" + uniqueKey + "_";
+  }
+
+  // new: get primary key index of a table
+  dberr_t GetPKIndex(const std::string &table_name, IndexInfo *&index_info) const {
+    return GetIndex(table_name, GetPKIndexName(table_name), index_info);
+  }
+
+  // new: get unique key index of a table
+  dberr_t GetUniIndex(const std::string &table_name, const std::string &uniqueKey, IndexInfo *&index_info) const {
+    return GetIndex(table_name, GetUniIndexName(table_name, uniqueKey), index_info);
+  }
+
   dberr_t GetTableIndexes(const std::string &table_name, std::vector<IndexInfo *> &indexes) const;
 
   dberr_t DropTable(const std::string &table_name);
 
   dberr_t DropIndex(const std::string &table_name, const std::string &index_name);
+    
+  // new: insert with checking primary key & unique
+  // ret: DB_PK_DUPLICATE, DB_UNI_KEY_DUPLICATE, DB_TUPLE_TOO_LARGE, DB_SUCCESS
+  dberr_t Insert(TableInfo* &tf, Row &row, Transaction *txn);
+
+  dberr_t Update(CatalogManager* &cat, Row &row, Transaction *txn);
+
+  dberr_t Delete(CatalogManager* &cat, Row &row, Transaction *txn);
 
 private:
   dberr_t FlushCatalogMetaPage() const;

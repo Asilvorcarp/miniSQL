@@ -76,7 +76,19 @@ public:
 
   inline std::string GetTableName() const { return table_meta_->table_name_; }
 
+  // new: get primary key indexs
   inline vector<uint32_t> GetPrimaryKeyIndexs() const { return table_meta_->primaryKeyIndexs_; }
+  
+  // new: get unique key names and indexes
+  inline vector<pair<string, uint32_t>> GetUniqueKeyNIs() const {
+    vector<pair<string, uint32_t>> uniIndexes;
+    for (auto &col : table_meta_->schema_->GetColumns()) {
+      if (col->IsUnique()) {
+        uniIndexes.push_back(make_pair(col->GetName(), col->GetTableInd()));
+      }
+    }
+    return uniIndexes; 
+  }
 
   inline Schema *GetSchema() const { return table_meta_->schema_; }
 

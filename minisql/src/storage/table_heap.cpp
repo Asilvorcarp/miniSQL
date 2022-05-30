@@ -1,14 +1,5 @@
 #include "storage/table_heap.h"
 
-dberr_t TableHeap::Insert(Row &row, Transaction *txn) {
-  // todo
-  bool ret = InsertTuple(row, txn);
-  if (!ret) {
-    // error: the tuple is too large (>= page_size)
-    return DB_FAILED;
-  }
-  return DB_SUCCESS;
-}
 
 bool TableHeap::InsertTuple(Row &row, Transaction *txn) {
   page_id_t i=first_page_id_;

@@ -224,8 +224,9 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
   }
   TableSchema* table_schema = new TableSchema(columns); // input of CreateTable
   TableInfo* table_info = nullptr; // output of CreateTable
-  dberr_t ret = dbs_[current_db_]->catalog_mgr_->CreateTable(tableName, table_schema,
-                                                  nullptr, table_info, primaryKeyIndexs);
+  auto cat = dbs_[current_db_]->catalog_mgr_;
+  dberr_t ret = cat->CreateTable(tableName, table_schema,
+                     nullptr, table_info, primaryKeyIndexs);
   if (ret == DB_TABLE_ALREADY_EXIST) {
     cout << "Table " << tableName << " already exists." << endl;
     return DB_FAILED;
@@ -236,16 +237,16 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
   assert(ret == DB_SUCCESS);
   // create index for primary key
   IndexInfo *pkIndexInfo = nullptr;
-  string pkIndexName = "_" + tableName + "_PK_";
-  dberr_t pk_ret = dbs_[current_db_]->catalog_mgr_->CreateIndex(tableName, pkIndexName, 
-                                              primaryKeys, nullptr, pkIndexInfo);
+  string pkIndexName = cat->GetPKIndexName(tableName);
+  dberr_t pk_ret = cat->CreateIndex(tableName, pkIndexName, 
+                        primaryKeys, nullptr, pkIndexInfo);
   assert(pk_ret == DB_SUCCESS);
   // create index for unique key
   for (auto &uniqueKey : uniqueKeys) {
     IndexInfo *uniqueIndexInfo = nullptr;
-    string uniqueIndexName = "_" + tableName + "_UNI_" + uniqueKey + "_";
-    dberr_t uni_ret = dbs_[current_db_]->catalog_mgr_->CreateIndex(tableName, uniqueIndexName, 
-                                                {uniqueKey}, nullptr, uniqueIndexInfo);
+    string uniqueIndexName = cat->GetUniIndexName(tableName, uniqueKey);
+    dberr_t uni_ret = cat->CreateIndex(tableName, uniqueIndexName, 
+                           {uniqueKey}, nullptr, uniqueIndexInfo);
     assert(uni_ret == DB_SUCCESS);
   }
   cout << "Table " << tableName << " created." << endl;
@@ -557,7 +558,6 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
   }
   assert(ret == DB_SUCCESS);
   TableSchema *table_schema = table_info->GetSchema();
-  TableHeap *table_heap = table_info->GetTableHeap();
 
   // 3. convert values to a Row
   pSyntaxNode valuesNode = tableNode->next_; // values
@@ -616,12 +616,19 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
   Row row(fields);
 
   // 4. insert
-  // todo: doing, implement things about primary key (error if Equals) inside TableHeap
-  bool ret_bool = table_heap->InsertTuple(row, nullptr);
-  if (ret_bool == false){ // todo: more error type like duplicated primary key
-    cout << "Insert failed." << endl;
+  auto cat = dbs_[current_db_]->catalog_mgr_;
+  ret = cat->Insert(table_info, row, nullptr);
+  if (ret == DB_PK_DUPLICATE){
+    cout << "Primary key duplicate." << endl;
+    return DB_FAILED;
+  }else if (ret == DB_UNI_KEY_DUPLICATE){
+    cout << "Unique key duplicate." << endl;
+    return DB_FAILED;
+  }else if (ret == DB_TUPLE_TOO_LARGE){
+    cout << "Tuple too large." << endl;
     return DB_FAILED;
   }
+  assert(ret == DB_SUCCESS);
   cout << "Query OK, 1 row affected (" << "0.00" << " sec)" << endl;
   return DB_SUCCESS;
 }
