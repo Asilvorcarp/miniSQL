@@ -319,8 +319,9 @@ dberr_t CatalogManager::Insert(TableInfo* &tf, Row &row, Transaction *txn) {
     // error: the tuple is too large (>= page_size)
     return DB_TUPLE_TOO_LARGE;
   }
-  // todo maintain index
-    // index_info->GetIndex()->InsertEntry(row, rid, nullptr))
+  // maintain auto-gen index
+  pkIndexInfo->GetIndex()->InsertEntry(pk, row.GetRowId(), txn);
+  // todo maintain user specified index
   return DB_SUCCESS;
 }
 
