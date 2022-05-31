@@ -1,5 +1,6 @@
 #include "executor/execute_engine.h"
 #include "glog/logging.h"
+#include <time.h>
 
 #define ENABLE_EXECUTE_DEBUG // debug
 
@@ -69,13 +70,15 @@ dberr_t ExecuteEngine::ExecuteCreateDatabase(pSyntaxNode ast, ExecuteContext *co
   LOG(INFO) << "ExecuteCreateDatabase" << std::endl;
   LOG(INFO) << "Create DB: " << dbName << std::endl;
 #endif
+  int time_start = clock();
   if (dbs_.find(dbName) != dbs_.end()) {
     cout << "Error: Database " << dbName << " already exists." << endl;
     return DB_FAILED;
   }
   dbs_.insert(std::make_pair(dbName, new DBStorageEngine(dbName)));
+  int time_end = clock();
+  cout << "Database " << dbName << " created." << "  (" << (double)(time_end - time_start)/CLOCKS_PER_SEC  << " sec)" << endl;
 
-  cout << "Database " << dbName << " created." << endl;
   return DB_SUCCESS;
 }
 
@@ -85,12 +88,14 @@ dberr_t ExecuteEngine::ExecuteDropDatabase(pSyntaxNode ast, ExecuteContext *cont
   LOG(INFO) << "ExecuteDropDatabase" << std::endl;
   LOG(INFO) << "Drop DB: " << dbName << std::endl;
 #endif
+  int time_start = clock();
   if (dbs_.find(dbName) == dbs_.end()) {
     cout << "Error: Database " << dbName << " does not exist." << endl;
     return DB_FAILED;
   }
   delete dbs_[dbName];
-  cout << "Database " << dbName << " dropped." << endl;
+  int time_end = clock();
+  cout << "Database " << dbName << " dropped." << "  (" << (double)(time_end - time_start)/CLOCKS_PER_SEC  << " sec)" << endl;
   return DB_SUCCESS;
 }
 
@@ -99,13 +104,18 @@ dberr_t ExecuteEngine::ExecuteShowDatabases(pSyntaxNode ast, ExecuteContext *con
   LOG(INFO) << "ExecuteShowDatabases" << std::endl;
   LOG(INFO) << "Showing Databases" << std::endl;
 #endif
+  int time_start = clock();
   if (dbs_.empty()) {
     cout << "No database exists." << endl;
     return DB_SUCCESS;
   }
+  int count = 0;
   for (auto &db : dbs_) {
     cout << db.first << endl;
+    count++;
   }
+  int time_end = clock();
+  cout << "Show "<< count << "databases. (" << (double)(time_end - time_start)/CLOCKS_PER_SEC  << " sec)" << endl;
   return DB_SUCCESS;
 }
 
@@ -128,6 +138,8 @@ dberr_t ExecuteEngine::ExecuteShowTables(pSyntaxNode ast, ExecuteContext *contex
   LOG(INFO) << "ExecuteShowTables" << std::endl;
   LOG(INFO) << "Showing Tables" << std::endl;
 #endif
+  int time_start = clock();
+  int count = 0;
   vector<TableInfo *> tables;
   dbs_[current_db_]->catalog_mgr_->GetTables(tables);
   if (tables.empty()) {
@@ -136,7 +148,10 @@ dberr_t ExecuteEngine::ExecuteShowTables(pSyntaxNode ast, ExecuteContext *contex
   }
   for (auto &table : tables) {
     cout << table->GetTableName() << endl;
+    count++;
   }
+  int time_end = clock();
+  cout << "Show "<< count << "tables. (" << (double)(time_end - time_start)/CLOCKS_PER_SEC  << " sec)" << endl;
   return DB_SUCCESS;
 }
 
@@ -147,6 +162,7 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
   LOG(INFO) << "ExecuteCreateTable" << std::endl;
   LOG(INFO) << "Create Table: " << tableName << std::endl;
 #endif
+  int time_start = clock();
   pSyntaxNode columnDefList = ast->child_->next_; // kNodeColumnDefinitionList
   vector<Column *> columns;
   map<string, uint32_t> columnNameToIndex;
@@ -249,7 +265,8 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
                            {uniqueKey}, nullptr, uniqueIndexInfo);
     assert(uni_ret == DB_SUCCESS);
   }
-  cout << "Table " << tableName << " created." << endl;
+  int time_end = clock();
+  cout << "Table " << tableName << " created." << "  (" << (time_end - time_start)*1.0/CLOCKS_PER_SEC  << " sec)" << endl;
   return DB_SUCCESS;
 }
 
@@ -268,7 +285,6 @@ dberr_t ExecuteEngine::ExecuteDropTable(pSyntaxNode ast, ExecuteContext *context
     cout << "Error: Can't find " << tableName << "." << endl;
     return DB_TABLE_NOT_EXIST;
   }
-  return dbs_[current_db_]->catalog_mgr_->DropTable(tableName);
 }
 
 dberr_t ExecuteEngine::ExecuteShowIndexes(pSyntaxNode ast, ExecuteContext *context) {
@@ -336,7 +352,7 @@ dberr_t ExecuteEngine::ExecuteDropIndex(pSyntaxNode ast, ExecuteContext *context
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteDropIndex" << std::endl;
 #endif
-  //not finished
+  // dberr_t ret = dbs_[current_db_]->catalog_mgr_->DropIndex()
   return DB_FAILED;
 }
 
@@ -450,6 +466,9 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
   pSyntaxNode fromNode = selectNode->next_; //things after 'from', like 't1'
   pSyntaxNode whereNode = fromNode->next_; //things after 'where', like 'name = a' (may be null)
 
+  //记录时间
+  int time_start = clock();    //计时开始
+
   // 1. from
   string fromTable = fromNode->val_; // from table name
   TableInfo *table_info = nullptr;
@@ -535,7 +554,9 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
     cout << endl;
     temp_index++;
   }
-  cout << select_count << " rows in set (" << "0.00" << " sec)" << endl;
+  //记录时间
+  int time_end = clock();    //计时结束
+  cout << select_count << " rows in set (" << (double)(time_end - time_start)/CLOCKS_PER_SEC  << " sec)" << endl;
   
   return DB_SUCCESS;
 }
@@ -548,6 +569,7 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
   // 1. get table name
   pSyntaxNode tableNode = ast->child_; // table name
   string tableName = tableNode->val_;
+  int time_start = clock();
 
   // 2. get TableSchema and TableHeap
   TableInfo *table_info = nullptr;
@@ -629,7 +651,8 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
     return DB_FAILED;
   }
   assert(ret == DB_SUCCESS);
-  cout << "Query OK, 1 row affected (" << "0.00" << " sec)" << endl;
+  int time_end = clock();
+  cout << "Query OK, 1 row affected (" << (double)(time_end - time_start)/CLOCKS_PER_SEC << " sec)" << endl;
   return DB_SUCCESS;
 }
 
@@ -643,6 +666,7 @@ dberr_t ExecuteEngine::ExecuteDelete(pSyntaxNode ast, ExecuteContext *context) {
   pSyntaxNode fromNode = ast->child_; //things after 'from', like 't1'
   pSyntaxNode whereNode = ast->child_->next_; //things after 'where', like 'name = a' (may be null)
   
+  int time_start = clock();
   // 1. from
   string fromTable = fromNode->val_; // from table name
   TableInfo *table_info = nullptr;
@@ -673,7 +697,8 @@ dberr_t ExecuteEngine::ExecuteDelete(pSyntaxNode ast, ExecuteContext *context) {
       delete_count++;
     }
   }
-  cout << "Query OK, "<<delete_count<<" row deleted (" << "0.00" << " sec)" << endl;
+  int time_end = clock();
+  cout << "Query OK, "<<delete_count<<" row deleted (" << (double)(time_end - time_start)/CLOCKS_PER_SEC << " sec)" << endl;
   return DB_SUCCESS;
 }
 
@@ -685,6 +710,8 @@ dberr_t ExecuteEngine::ExecuteUpdate(pSyntaxNode ast, ExecuteContext *context) {
   pSyntaxNode UpdateNode = ast->child_; //things after 'from', like 't1'
   pSyntaxNode SetNode = UpdateNode->next_;////things after 'set', like 'age = 18'
   pSyntaxNode whereNode = SetNode->next_; //things after 'where', like 'name = a' (may be null)
+
+  int time_start = clock();
   // 1. from
   string Table_name = UpdateNode->val_; // from table name
   TableInfo *table_info = nullptr;
@@ -782,6 +809,8 @@ dberr_t ExecuteEngine::ExecuteUpdate(pSyntaxNode ast, ExecuteContext *context) {
       update_count++;
     }
   }
+  int time_end = clock();
+  cout << "Query OK, "<<update_count<<" row updated (" << (double)(time_end - time_start)/CLOCKS_PER_SEC << " sec)" << endl;
   return DB_FAILED;
 }
 
