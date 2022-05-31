@@ -221,6 +221,13 @@ dberr_t CatalogManager::CreateIndex(const std::string &table_name, const string 
       this->index_names_[table_name]=tmpMap;
       this->indexes_[nextIndexID]=index_info;
       this->catalog_meta_->index_meta_pages_[nextIndexID]=pge->GetPageId();
+      // insert current rows of table into index
+      TableIterator iter = tf->GetTableHeap()->Begin(nullptr);
+      for (; !iter.isNull(); iter++) {
+        Row row = *iter;
+        Row keyRow(row, tmp);
+        index_info->GetIndex()->InsertEntry(keyRow, row.GetRowId(), txn);
+      }
       return DB_SUCCESS;
     }
   }

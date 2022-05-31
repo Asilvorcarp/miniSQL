@@ -98,13 +98,6 @@ public:
     for (auto &uni_key_map : uni_key_maps) {
       uniAndPriKeyMaps.push_back(uni_key_map);
     }
-    // print the uniAndPriKeyMaps // debug // todo remove
-    for (auto &uniAndPriKeyMap : uniAndPriKeyMaps) {
-      for (auto &col : uniAndPriKeyMap) {
-        cout << col << ' ';
-      }
-      cout << endl;
-    }
     return uniAndPriKeyMaps;
   }
 

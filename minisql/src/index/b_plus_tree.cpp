@@ -143,7 +143,7 @@ bool BPLUSTREE_TYPE::InsertIntoLeaf(const KeyType &key, const ValueType &value, 
 
   buffer_pool_manager_->UnpinPage(leaf_page->GetPageId(), true);
   buffer_pool_manager_->UnpinPage(new_leaf->GetPageId(), true);
-  return false;
+  return true;
 }
 
 /*

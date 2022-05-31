@@ -46,7 +46,7 @@ private:
   Transaction *txn;
   TableHeap *table_heap;
   TablePage *page;
-  Row *row;
+  Row *row{nullptr};
   // add your own private member variables here
 };
 

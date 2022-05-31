@@ -151,7 +151,7 @@ dberr_t ExecuteEngine::ExecuteShowTables(pSyntaxNode ast, ExecuteContext *contex
     count++;
   }
   int time_end = clock();
-  cout << "Show "<< count << "tables. (" << (double)(time_end - time_start)/CLOCKS_PER_SEC  << " sec)" << endl;
+  cout << "Showed "<< count << " tables. (" << (double)(time_end - time_start)/CLOCKS_PER_SEC  << " sec)" << endl;
   return DB_SUCCESS;
 }
 
