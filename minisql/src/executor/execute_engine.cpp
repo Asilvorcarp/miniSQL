@@ -346,14 +346,21 @@ dberr_t ExecuteEngine::ExecuteCreateIndex(pSyntaxNode ast, ExecuteContext *conte
   return DB_SUCCESS;
 }
 
-//dxp not finished  //好像只能drop index 索引名； 但调用需要知道表名；
+//dxp
 dberr_t ExecuteEngine::ExecuteDropIndex(pSyntaxNode ast, ExecuteContext *context) {
   string indexName = ast->child_->val_; //根据语法树找index的名字。
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteDropIndex" << std::endl;
 #endif
-  // dberr_t ret = dbs_[current_db_]->catalog_mgr_->DropIndex()
-  return DB_FAILED;
+  int ret = dbs_[current_db_]->catalog_mgr_->DropIndex(indexName);
+  if(ret == 0){
+    cout << "Error: index not found." << endl;
+    return DB_INDEX_NOT_FOUND;
+  }
+  else{
+    cout << "Drop " << "index " << indexName << ","<< ret << "in total" <<std::endl;
+    return DB_SUCCESS;
+  }
 }
 
 // new: get child value list of a node
@@ -656,7 +663,7 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
   return DB_SUCCESS;
 }
 
-//dxp //ok
+//dxp   //todo：需要维护index
 dberr_t ExecuteEngine::ExecuteDelete(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteDelete" << std::endl;
@@ -702,7 +709,7 @@ dberr_t ExecuteEngine::ExecuteDelete(pSyntaxNode ast, ExecuteContext *context) {
   return DB_SUCCESS;
 }
 
-//dxp //lack of unique and primary key constraint
+//dxp //todo：需要维护index 以及  lack of unique and primary key constraint 
 dberr_t ExecuteEngine::ExecuteUpdate(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteUpdate" << std::endl;

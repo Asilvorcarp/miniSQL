@@ -123,6 +123,8 @@ public:
   dberr_t DropTable(const std::string &table_name);
 
   dberr_t DropIndex(const std::string &table_name, const std::string &index_name);
+  //重载一个不需要表名的dropindex
+  int DropIndex(const std::string &index_name);
     
   // new: insert with checking primary key & unique
   // ret: DB_PK_DUPLICATE, DB_UNI_KEY_DUPLICATE, DB_TUPLE_TOO_LARGE, DB_SUCCESS

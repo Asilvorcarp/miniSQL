@@ -250,6 +250,22 @@ dberr_t CatalogManager::DropIndex(const string &table_name, const string &index_
   return DB_SUCCESS;
 }
 
+//删除所有该名字的index
+int CatalogManager::DropIndex(const std::string &index_name)
+{
+  int count = 0;
+  for(auto kv:index_names_){
+    for(auto se:kv.second){
+      if(se.first==index_name){
+        dberr_t temp = DropIndex(kv.first,index_name);
+        if(temp==DB_SUCCESS){
+          count++;
+        }
+      }
+    }
+  }
+  return count;
+}
 
 dberr_t CatalogManager::FlushCatalogMetaPage() const {
   // ASSERT(false, "Not Implemented yet");
