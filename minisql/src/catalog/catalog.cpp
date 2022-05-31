@@ -166,12 +166,18 @@ dberr_t CatalogManager::CreateIndex(const std::string &table_name, const string 
       sort(tmp.begin(), tmp.end());
       sort(pkIndexs.begin(), pkIndexs.end());
       bool isPrimaryKey = (tmp == pkIndexs);
+      bool is_set_unique = false;   //只要建索引的集合里有一个unique即可
       if (!isPrimaryKey){
         for (auto &i : tmp) {
-          if(col[i]->IsUnique()==false){
-            return DB_COLUMN_NOT_UNIQUE;
+          if(col[i]->IsUnique()==true){    //!!unique_为true是需要唯一
+            is_set_unique = true;
+            break;
+            // return DB_COLUMN_NOT_UNIQUE;
           }
         }
+      }
+      if(is_set_unique == false){
+        return DB_COLUMN_NOT_UNIQUE;
       }
       IndexMetadata *im=IndexMetadata::Create(this->catalog_meta_->GetNextIndexId(),index_name,this->table_names_.at(table_name),tmp,this->heap_); 
       im->SerializeTo(pge->GetData());

@@ -76,7 +76,7 @@ TEST(CatalogTest, CatalogIndexTest) {
   TableInfo *table_info = nullptr;
   ASSERT_EQ(DB_TABLE_NOT_EXIST, catalog_01->GetTable("table-1", table_info));
   std::vector<Column *> columns = {
-          ALLOC_COLUMN(heap)("id", TypeId::kTypeInt, 0, false, false),
+          ALLOC_COLUMN(heap)("id", TypeId::kTypeInt, 0, false, true),      //测试点有问题，该colume没有主键没有可以用于建index的属性
           ALLOC_COLUMN(heap)("name", TypeId::kTypeChar, 64, 1, true, false),
           ALLOC_COLUMN(heap)("account", TypeId::kTypeFloat, 2, true, false)
   };
