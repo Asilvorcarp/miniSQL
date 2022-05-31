@@ -41,6 +41,13 @@ public:
   dberr_t Execute(pSyntaxNode ast, ExecuteContext *context);
 
 private:
+
+  // new: input: whereNode, table_info and CatalogManager.
+  //      return: if a query is possible to accelerate.
+  //      if possible, output: index and key.
+  bool canAccelerate(pSyntaxNode whereNode, TableInfo* &table_info, CatalogManager* &cat,
+                                    IndexInfo* &index, Row* &key);
+
   dberr_t ExecuteCreateDatabase(pSyntaxNode ast, ExecuteContext *context);
 
   dberr_t ExecuteDropDatabase(pSyntaxNode ast, ExecuteContext *context);

@@ -115,7 +115,7 @@ dberr_t ExecuteEngine::ExecuteShowDatabases(pSyntaxNode ast, ExecuteContext *con
     count++;
   }
   int time_end = clock();
-  cout << "Show "<< count << "databases. (" << (double)(time_end - time_start)/CLOCKS_PER_SEC  << " sec)" << endl;
+  cout << "Showed "<< count << " databases. (" << (double)(time_end - time_start)/CLOCKS_PER_SEC  << " sec)" << endl;
   return DB_SUCCESS;
 }
 
@@ -465,6 +465,66 @@ CmpBool GetResultOfNode(const pSyntaxNode &ast, const Row &row, TableSchema *sch
   return kFalse;
 }
 
+inline bool isAnd(const pSyntaxNode &ast) {
+  return ast->type_ == kNodeConnector && string(ast->val_) == "and";
+}
+
+inline bool isEqual(const pSyntaxNode &ast) {
+  return ast->type_ == kNodeCompareOperator && string(ast->val_) == "=";
+}
+
+bool ExecuteEngine::canAccelerate(pSyntaxNode whereNode, TableInfo* &table_info, CatalogManager* &cat,
+                                  IndexInfo* &index, Row* &key){
+  if (whereNode == nullptr) {
+    return false;
+  }
+  assert(whereNode->type_ == kNodeConditions);
+  // traverse the tree
+  pSyntaxNode curr = whereNode->child_;
+  vector<string> colNames;
+  vector<string> colValues;
+  while (!isEqual(curr)) {
+    if (!isAnd(curr)) {
+      // not equal/and
+      return false;
+    }
+    pSyntaxNode rhs = curr->child_->next_;
+    if (isEqual(rhs)) {
+      colNames.push_back(rhs->child_->val_);
+      colValues.push_back(rhs->child_->next_->val_);
+    }else return false;
+    curr = curr->child_;
+  }
+  // the last equal operater
+  colNames.push_back(curr->child_->val_);
+  colValues.push_back(curr->child_->next_->val_);
+  // get index
+  vector<uint32_t> key_map;
+  for (auto &colName : colNames) {
+    uint32_t colIndex;
+    dberr_t ret = table_info->GetSchema()->GetColumnIndex(colName, colIndex);
+    if (ret != DB_SUCCESS) {
+      return false;
+    }
+    key_map.push_back(colIndex);
+  }
+  vector<IndexInfo *> index_list;
+  cat->GetIndexesForKeyMap(table_info->GetTableName(), key_map, index_list);
+  if (index_list.size() == 0) {
+    return false;
+  }
+  index = index_list[0];
+  // get key
+  vector<Field> fields;
+  for (uint32_t i = 0; i < key_map.size(); i++) {
+    Field field(table_info->GetSchema()->GetColumn(key_map[i])->GetType());
+    field.FromString(colValues[i]);
+    fields.push_back(field);
+  }
+  key = new Row(fields);
+  return true;
+}
+
 dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteSelect" << std::endl;
@@ -514,19 +574,24 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
     }
   }
 
-  // todo: 使用index加速
-  // traverse the table
-  TableIterator iter = table_info->GetTableHeap()->Begin(nullptr);
-  // TableIterator iter_end = table_info->GetTableHeap()->End(); // todo: not using it for bug in End()
   int select_count = 0;
   vector<vector<string>> select_result;
-  for (; !iter.isNull(); iter++) {
-    Row row = *iter;
-    // 2. where // todo: not sure about kTrue
-    if (!whereNode || GetResultOfNode(whereNode, row, table_schema) == kTrue) {
-      // 3. select
+
+  // accelerate query using index if possible
+  IndexInfo* index_info = nullptr; // output of canAccelerate
+  Row* key;                        // output of canAccelerate
+  if (canAccelerate(whereNode, table_info, dbs_[current_db_]->catalog_mgr_, index_info, key)){
+    // accelerate using index
+    vector<RowId> scanRet;
+    index_info->GetIndex()->ScanKey(*key, scanRet, nullptr);
+    assert(scanRet.size() <= 1);
+    select_count = scanRet.size();
+    // select
+    for (auto &rowId: scanRet){
+      Row* row = new Row(rowId);
+      table_info->GetTableHeap()->GetTuple(row, nullptr);
       vector<string> result_line;
-      std::vector<Field *> &fields = row.GetFields();
+      std::vector<Field *> fields = row->GetFields();
       if (if_select_all){
         for (size_t i = 0; i < fields.size(); i++) {
           result_line.push_back(fields[i]->ToString());
@@ -537,7 +602,32 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
         }
       }
       select_result.push_back(result_line);
-      select_count++;
+    } 
+
+  }else{
+
+    // traverse the table
+    TableIterator iter = table_info->GetTableHeap()->Begin(nullptr);
+    // todo: not using table_info->GetTableHeap()->End() for its bug 
+    for (; !iter.isNull(); iter++) {
+      Row row = *iter;
+      // 2. where // todo: not sure about kTrue
+      if (!whereNode || GetResultOfNode(whereNode, row, table_schema) == kTrue) {
+        // 3. select
+        vector<string> result_line;
+        std::vector<Field *> fields = row.GetFields();
+        if (if_select_all){
+          for (size_t i = 0; i < fields.size(); i++) {
+            result_line.push_back(fields[i]->ToString());
+          }
+        }else{
+          for (auto &i : selectColumnIndexs){
+            result_line.push_back(fields[i]->ToString());
+          }
+        }
+        select_result.push_back(result_line);
+        select_count++;
+      }
     }
   }
 
