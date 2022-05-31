@@ -1,6 +1,14 @@
 #include "executor/execute_engine.h"
 #include "glog/logging.h"
+#include <fstream>
 #include <time.h>
+
+extern "C" {
+extern int yyparse(void);
+#include "parser/minisql_lex.h"
+#include "parser/parser.h"
+#include "parser/parser.h"
+};
 
 #define ENABLE_EXECUTE_DEBUG // debug
 
@@ -939,8 +947,54 @@ dberr_t ExecuteEngine::ExecuteExecfile(pSyntaxNode ast, ExecuteContext *context)
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteExecfile" << std::endl;
 #endif
-  // remember to support comments("-- xxx")
-  return DB_FAILED;
+  string fileName = ast->child_->val_;
+  std::fstream cmdIn(fileName, std::ios::in); // get command from file
+  const int buf_size = 1024;
+  char cmd[buf_size];
+  // repeat until EOF
+  while (cmdIn.getline(cmd, buf_size)) {
+    // todo: support multi-line command
+    // skip empty line
+    if (cmd[0] == '\0') {
+      continue;
+    }
+    // support comments start with "--"
+    if (cmd[0] == '-') {
+      cout << "\n[COMMENT] " << cmd << endl;
+      continue;
+    }
+    cout << "\n[CMD] " << cmd << endl;
+    // create buffer for sql input
+    YY_BUFFER_STATE bp = yy_scan_string(cmd);
+    if (bp == nullptr) {
+      LOG(ERROR) << "Failed to create yy buffer state." << std::endl;
+      exit(1);
+    }
+    yy_switch_to_buffer(bp);
+    // init parser module
+    MinisqlParserInit();
+    // parse
+    yyparse();
+    // parse result handle
+    if (MinisqlParserGetError()) {
+      // error
+      printf("%s\n", MinisqlParserGetErrorMessage());
+    }
+    this->Execute(MinisqlGetParserRootNode(), context);
+    // sleep(1); // probably not needed
+    // clean memory after parse
+    MinisqlParserFinish();
+    yy_delete_buffer(bp);
+    yylex_destroy();
+    // reset cmd
+    memset(cmd, 0, buf_size);
+    // quit condition
+    if (context->flag_quit_) {
+      break;
+    }
+  }
+  cmdIn.close();
+  return DB_SUCCESS;
 }
 
 dberr_t ExecuteEngine::ExecuteQuit(pSyntaxNode ast, ExecuteContext *context) {
