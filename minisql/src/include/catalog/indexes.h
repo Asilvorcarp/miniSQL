@@ -83,6 +83,8 @@ public:
 
   inline IndexSchema *GetIndexKeySchema() { return key_schema_; }
 
+  inline vector<uint32_t> GetKeyMapping() { return meta_data_->GetKeyMapping(); }
+
   inline MemHeap *GetMemHeap() const { return heap_; }
 
   inline TableInfo *GetTableInfo() const { return table_info_; }

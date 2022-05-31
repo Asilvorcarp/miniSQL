@@ -29,6 +29,11 @@ public:
     return memcmp(data, other.data, KeySize) == 0;
   }
 
+  // compare <
+  inline bool operator<(const GenericKey &other) const {
+    return memcmp(data, other.data, KeySize) < 0;
+  }
+
   // NOTE: for test purpose only
   // interpret the first 8 bytes as int64_t from data vector
   inline int64_t ToString() const {

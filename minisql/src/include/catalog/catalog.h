@@ -98,25 +98,22 @@ public:
 
   dberr_t GetIndex(const std::string &table_name, const std::string &index_name, IndexInfo *&index_info) const;
 
-  // new: get primary key index name of a table
-  static std::string GetPKIndexName(const std::string &table_name) {
+  // new: generate primary key index name for a table
+  static std::string AutoGenPKIndexName(const std::string &table_name) {
     return "_" + table_name + "_PK_";
   }
 
-  // new: get unique key index name of a table
-  static std::string GetUniIndexName(const std::string &table_name, const std::string &uniqueKey) {
+  // new: generate unique key index name for a table
+  static std::string AutoGenUniIndexName(const std::string &table_name, const std::string &uniqueKey) {
     return "_" + table_name + "_UNI_" + uniqueKey + "_";
   }
 
-  // new: get primary key index of a table
-  dberr_t GetPKIndex(const std::string &table_name, IndexInfo *&index_info) const {
-    return GetIndex(table_name, GetPKIndexName(table_name), index_info);
-  }
+  // new: get indexes for a table & key_map
+  dberr_t GetIndexesForKeyMap(const std::string &table_name, const vector<uint32_t> &key_map, 
+                     vector<IndexInfo*> &index_infos) const ;
 
-  // new: get unique key index of a table
-  dberr_t GetUniIndex(const std::string &table_name, const std::string &uniqueKey, IndexInfo *&index_info) const {
-    return GetIndex(table_name, GetUniIndexName(table_name, uniqueKey), index_info);
-  }
+  // new: is actually unique
+  bool isNotDuplicated(vector<uint32_t> &key_map, vector<Column *> &cols, TableInfo* &table_info);
 
   dberr_t GetTableIndexes(const std::string &table_name, std::vector<IndexInfo *> &indexes) const;
 

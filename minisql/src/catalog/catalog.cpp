@@ -1,5 +1,6 @@
 #include "catalog/catalog.h"
 #include <algorithm>
+#include <set>
 
 void CatalogMeta::SerializeTo(char *buf) const {
   uint32_t ofs=0;
@@ -138,6 +139,30 @@ dberr_t CatalogManager::GetTables(vector<TableInfo *> &tables) const {
   return DB_SUCCESS;
 }
 
+bool CatalogManager::isNotDuplicated(vector<uint32_t> &key_map, vector<Column *> &cols, TableInfo* &table_info){
+  auto key_schema=Schema::ShallowCopySchema(table_info->GetSchema(), key_map, this->heap_);
+  TableIterator iter = table_info->GetTableHeap()->Begin(nullptr);
+  set<GenericKey<64>> keys;
+  for (; !iter.isNull(); iter++) {
+    Row row = *iter;
+    Row keyRow(row, key_map);
+    GenericKey<64> key;
+    key.SerializeFromKey(keyRow, key_schema);
+    auto ret = keys.insert(key);
+    if (ret.second == false) {
+      // duplicated (not inserted)
+      return false;
+    }
+  }
+  return true;
+}
+            
+inline void markAsUnique(vector<uint32_t> &key_map, vector<Column *> &cols){
+  for (auto &i : key_map){
+    cols[i]->SetUnique(true);
+  }
+}
+
 dberr_t CatalogManager::CreateIndex(const std::string &table_name, const string &index_name,
                                     const std::vector<std::string> &index_keys, Transaction *txn,
                                     IndexInfo *&index_info) {
@@ -172,14 +197,18 @@ dberr_t CatalogManager::CreateIndex(const std::string &table_name, const string 
           if(col[i]->IsUnique()==true){    //!!unique_为true是需要唯一
             is_set_unique = true;
             break;
-            // return DB_COLUMN_NOT_UNIQUE;
           }
         }
-        if(is_set_unique == false ){
-          return DB_COLUMN_NOT_UNIQUE;
+        if(is_set_unique == false){
+          // old: return DB_COLUMN_NOT_UNIQUE;
+          // if actually unique, then allow creating index on it, and mark it as unique
+          if (isNotDuplicated(tmp, col, tf)) {
+            markAsUnique(tmp, col);
+          }else{
+            return DB_COLUMN_NOT_UNIQUE;
+          }
         }
       }
-      
       IndexMetadata *im=IndexMetadata::Create(this->catalog_meta_->GetNextIndexId(),index_name,this->table_names_.at(table_name),tmp,this->heap_); 
       im->SerializeTo(pge->GetData());
       index_info=IndexInfo::Create(this->heap_);
@@ -207,6 +236,20 @@ dberr_t CatalogManager::GetIndex(const std::string &table_name, const std::strin
     return DB_INDEX_NOT_FOUND;
   }
   index_info=this->indexes_.at(this->index_names_.at(table_name).at(index_name));
+  return DB_SUCCESS;
+}
+
+// new: get indexes for a table & key_map
+dberr_t CatalogManager::GetIndexesForKeyMap(const std::string &table_name, const vector<uint32_t> &key_map, 
+                    vector<IndexInfo*> &index_infos) const {
+  vector<IndexInfo*> table_indexes;
+  this->GetTableIndexes(table_name, table_indexes);
+  for (auto &index : table_indexes) {
+    auto index_key_map = index->GetKeyMapping();
+    if (index_key_map == key_map) {
+      index_infos.push_back(index);
+    }
+  }
   return DB_SUCCESS;
 }
 
@@ -313,45 +356,39 @@ dberr_t CatalogManager::GetTable(const table_id_t table_id, TableInfo *&table_in
 // new: insert with checking primary key & unique
 // ret: DB_PK_DUPLICATE, DB_UNI_KEY_DUPLICATE, DB_TUPLE_TOO_LARGE, DB_SUCCESS
 dberr_t CatalogManager::Insert(TableInfo* &tf, Row &row, Transaction *txn) {
-  // check primary key
-  auto pkIndexes = tf->GetPrimaryKeyIndexs();
-  Row pk(row, pkIndexes);
-  IndexInfo *pkIndexInfo;
-  this->GetPKIndex(tf->GetTableName(), pkIndexInfo);
-  vector<RowId> scanRet;
-  dberr_t ret = pkIndexInfo->GetIndex()->ScanKey(pk, scanRet, txn);
-  if (ret != DB_KEY_NOT_FOUND){
-    // error: primary key duplicated
-    return DB_PK_DUPLICATE;
-  }
-  assert(ret == DB_KEY_NOT_FOUND);
-  // check unique key
-  auto uniKeyNIs = tf->GetUniqueKeyNIs();
-  for (auto uniKeyNI : uniKeyNIs) {
-    Row uni(row, {uniKeyNI.second});
-    IndexInfo *uniIndexInfo;
-    this->GetUniIndex(tf->GetTableName(), uniKeyNI.first, uniIndexInfo);
-    ret = uniIndexInfo->GetIndex()->ScanKey(uni, scanRet, txn);
-    if (ret != DB_KEY_NOT_FOUND) {
-      // error: unique key duplicated
+  // 1. check primary key and unique key
+  auto uni_pk_maps = tf->GetUniPKMaps();
+  for (auto &key_map : uni_pk_maps){
+    Row key(row, key_map);
+    vector<IndexInfo *> indexInfos;
+    this->GetIndexesForKeyMap(tf->GetTableName(), key_map, indexInfos);
+    auto indexInfo = indexInfos[0]; // one index is enough for checking
+    vector<RowId> scanRet;
+    dberr_t ret = indexInfo->GetIndex()->ScanKey(key, scanRet, txn);
+    if (ret != DB_KEY_NOT_FOUND){
+      if (key_map == tf->GetPrimaryKeyIndexs()){
+        // error: primary key duplicate
+        return DB_PK_DUPLICATE;
+      }
+      // error: unique key duplicate
       return DB_UNI_KEY_DUPLICATE;
     }
+    assert(ret == DB_KEY_NOT_FOUND);
   }
+  // 2. do insert
   bool ret_bool = tf->GetTableHeap()->InsertTuple(row, nullptr);
   if (!ret_bool) {
     // error: the tuple is too large (>= page_size)
     return DB_TUPLE_TOO_LARGE;
   }
-  // maintain auto-gen index
-  pkIndexInfo->GetIndex()->InsertEntry(pk, row.GetRowId(), txn);
-  for (auto uniKeyNI : uniKeyNIs) {
-    Row uni(row, {uniKeyNI.second});
-    IndexInfo *uniIndexInfo;
-    this->GetUniIndex(tf->GetTableName(), uniKeyNI.first, uniIndexInfo);
-    uniIndexInfo->GetIndex()->InsertEntry(uni, row.GetRowId(), txn);
+  // 3. maintain indexes
+  vector<IndexInfo *> indexes;
+  GetTableIndexes(tf->GetTableName(), indexes);
+  for (auto &index : indexes){
+    auto key_map = index->GetKeyMapping();
+    Row key(row, key_map);
+    index->GetIndex()->InsertEntry(key, row.GetRowId(), txn);
   }
-  // todo maintain user specified index
-  // ...
   return DB_SUCCESS;
 }
 

@@ -76,18 +76,36 @@ public:
 
   inline std::string GetTableName() const { return table_meta_->table_name_; }
 
-  // new: get primary key indexs
+  // new: get primary key indexs (a.k.a. pk_map)
   inline vector<uint32_t> GetPrimaryKeyIndexs() const { return table_meta_->primaryKeyIndexs_; }
-  
-  // new: get unique key names and indexes
-  inline vector<pair<string, uint32_t>> GetUniqueKeyNIs() const {
-    vector<pair<string, uint32_t>> uniIndexes;
+
+  // new: get unique key maps
+  inline vector<vector<uint32_t>> GetUniKeyMaps() const {
+    vector<vector<uint32_t>> uni_key_maps;
     for (auto &col : table_meta_->schema_->GetColumns()) {
       if (col->IsUnique()) {
-        uniIndexes.push_back(make_pair(col->GetName(), col->GetTableInd()));
+        uni_key_maps.push_back({col->GetTableInd()});
       }
     }
-    return uniIndexes; 
+    return uni_key_maps;
+  }
+
+  // new: get unique key and primary key maps
+  inline vector<vector<uint32_t>> GetUniPKMaps() const {
+    vector<vector<uint32_t>> uniAndPriKeyMaps;
+    uniAndPriKeyMaps.push_back(this->GetPrimaryKeyIndexs());
+    auto uni_key_maps = this->GetUniKeyMaps();
+    for (auto &uni_key_map : uni_key_maps) {
+      uniAndPriKeyMaps.push_back(uni_key_map);
+    }
+    // print the uniAndPriKeyMaps // debug // todo remove
+    for (auto &uniAndPriKeyMap : uniAndPriKeyMaps) {
+      for (auto &col : uniAndPriKeyMap) {
+        cout << col << ' ';
+      }
+      cout << endl;
+    }
+    return uniAndPriKeyMaps;
   }
 
   inline Schema *GetSchema() const { return table_meta_->schema_; }
