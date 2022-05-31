@@ -358,7 +358,7 @@ dberr_t ExecuteEngine::ExecuteDropIndex(pSyntaxNode ast, ExecuteContext *context
     return DB_INDEX_NOT_FOUND;
   }
   else{
-    cout << "Drop " << "index " << indexName << ","<< ret << "in total" <<std::endl;
+    cout << "Drop " << "index " << indexName << ","<< ret << " in total." <<std::endl;
     return DB_SUCCESS;
   }
 }

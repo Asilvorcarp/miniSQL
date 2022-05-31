@@ -175,10 +175,11 @@ dberr_t CatalogManager::CreateIndex(const std::string &table_name, const string 
             // return DB_COLUMN_NOT_UNIQUE;
           }
         }
+        if(is_set_unique == false ){
+          return DB_COLUMN_NOT_UNIQUE;
+        }
       }
-      if(is_set_unique == false){
-        return DB_COLUMN_NOT_UNIQUE;
-      }
+      
       IndexMetadata *im=IndexMetadata::Create(this->catalog_meta_->GetNextIndexId(),index_name,this->table_names_.at(table_name),tmp,this->heap_); 
       im->SerializeTo(pge->GetData());
       index_info=IndexInfo::Create(this->heap_);
