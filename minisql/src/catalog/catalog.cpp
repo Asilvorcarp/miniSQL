@@ -330,7 +330,8 @@ dberr_t CatalogManager::LoadTable(const table_id_t table_id, const page_id_t pag
   TableMetadata *tm=nullptr;
   TableMetadata::DeserializeFrom(pge->GetData(),tm,this->heap_);
   this->table_names_[tm->GetTableName()]=table_id;
-  TableHeap *th=TableHeap::Create(this->buffer_pool_manager_,tm->GetSchema(),nullptr,this->log_manager_,this->lock_manager_,table_info->GetMemHeap());
+  //load the existing table heap
+  TableHeap *th=TableHeap::Create(this->buffer_pool_manager_,tm->GetFirstPageId(),tm->GetSchema(),this->log_manager_,this->lock_manager_,this->heap_);
   table_info->Init(tm,th);
   this->tables_[table_id]=table_info;
   buffer_pool_manager_->UnpinPage(page_id,false);

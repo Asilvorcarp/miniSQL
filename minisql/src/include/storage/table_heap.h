@@ -102,7 +102,14 @@ private:
           schema_(schema),
           log_manager_(log_manager),
           lock_manager_(lock_manager) {
-    this->first_page_id_=0;
+    //first page is fetch by buffer_pool_manager
+    page_id_t tmpPage;
+    Page *page=buffer_pool_manager->NewPage(tmpPage);
+    if(page==nullptr){
+      ASSERT(false,"create new page failed!");
+    }else{
+      this->first_page_id_=tmpPage;
+    }
     //ASSERT(false, "Not implemented yet.");
   };
 
