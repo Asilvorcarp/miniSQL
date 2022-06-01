@@ -1,6 +1,7 @@
 #include "executor/execute_engine.h"
 #include "glog/logging.h"
 #include <fstream>
+#include <algorithm>
 #include <time.h>
 
 extern "C" {
@@ -507,14 +508,25 @@ bool ExecuteEngine::canAccelerate(pSyntaxNode whereNode, TableInfo* &table_info,
   colNames.push_back(curr->child_->val_);
   colValues.push_back(curr->child_->next_->val_);
   // get index
-  vector<uint32_t> key_map;
-  for (auto &colName : colNames) {
+  vector<pair<string, uint32_t>> val_key_map;
+  for (uint32_t i = 0; i < colNames.size(); i++) {
     uint32_t colIndex;
-    dberr_t ret = table_info->GetSchema()->GetColumnIndex(colName, colIndex);
+    dberr_t ret = table_info->GetSchema()->GetColumnIndex(colNames[i], colIndex);
     if (ret != DB_SUCCESS) {
       return false;
     }
-    key_map.push_back(colIndex);
+    val_key_map.push_back(make_pair(colValues[i], colIndex));
+  }
+  // sort according to key_map
+  sort(val_key_map.begin(), val_key_map.end(), 
+    [](const pair<string, uint32_t> &a, const pair<string, uint32_t> &b) {
+      return a.second < b.second;
+    }
+  );
+  // extract key_map
+  vector<uint32_t> key_map;
+  for (uint32_t i = 0; i < val_key_map.size(); i++) {
+    key_map.push_back(val_key_map[i].second);
   }
   vector<IndexInfo *> index_list;
   cat->GetIndexesForKeyMap(table_info->GetTableName(), key_map, index_list);
@@ -524,9 +536,9 @@ bool ExecuteEngine::canAccelerate(pSyntaxNode whereNode, TableInfo* &table_info,
   index = index_list[0];
   // get key
   vector<Field> fields;
-  for (uint32_t i = 0; i < key_map.size(); i++) {
-    Field field(table_info->GetSchema()->GetColumn(key_map[i])->GetType());
-    field.FromString(colValues[i]);
+  for (uint32_t i = 0; i < val_key_map.size(); i++) {
+    Field field(table_info->GetSchema()->GetColumn(val_key_map[i].second)->GetType());
+    field.FromString(val_key_map[i].first);
     fields.push_back(field);
   }
   key = new Row(fields);
