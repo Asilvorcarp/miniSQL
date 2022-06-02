@@ -2,31 +2,28 @@
 
 
 bool TableHeap::InsertTuple(Row &row, Transaction *txn) {
-  page_id_t i=first_page_id_;
-  auto page=reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(i));
-  //auto page=reinterpret_cast<TablePage *>(buffer_pool_manager_->NewPage(i));
-  if(page->GetNextPageId()!=INVALID_PAGE_ID){
-    page->Init(i,INVALID_PAGE_ID,log_manager_,txn);
-  }
-  if(page->InsertTuple(row,schema_,txn,lock_manager_,log_manager_)){
-    buffer_pool_manager_->UnpinPage(page->GetTablePageId(),true);
-    return true;
-  }
-  int lastI=i;
-  i=page->GetNextPageId();
+  page_id_t i = first_page_id_;
+  auto page = reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(i));
+  int lastI = i;
+  // first fit
   while(i!=INVALID_PAGE_ID){
-    auto page=reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(i));
+    page=reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(i));
     if(page->InsertTuple(row,schema_,txn,lock_manager_,log_manager_)){
       buffer_pool_manager_->UnpinPage(page->GetTablePageId(),true);
       return true;
     }
-    lastI=i;
-    i=page->GetNextPageId();
+    lastI = i;
+    i = page->GetNextPageId();
     buffer_pool_manager_->UnpinPage(page->GetTablePageId(),false);
   }
-  //need to allocate a new page,i=invalid page id
+  // need to allocate a new page, i=invalid page id
   page=reinterpret_cast<TablePage *>(buffer_pool_manager_->NewPage(i));
   page->Init(i,lastI,log_manager_,txn);
+  // set next page id
+  auto lastPage=reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(lastI));
+  lastPage->SetNextPageId(i);
+  buffer_pool_manager_->UnpinPage(lastPage->GetTablePageId(),true);
+  // insert to new page
   if(page->InsertTuple(row,schema_,txn,lock_manager_,log_manager_)){
     buffer_pool_manager_->UnpinPage(page->GetTablePageId(),true);
     return true;

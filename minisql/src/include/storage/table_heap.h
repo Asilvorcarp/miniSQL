@@ -102,15 +102,12 @@ private:
           schema_(schema),
           log_manager_(log_manager),
           lock_manager_(lock_manager) {
-    //first page is fetch by buffer_pool_manager
-    page_id_t tmpPage;
-    Page *page=buffer_pool_manager->NewPage(tmpPage);
-    if(page==nullptr){
-      ASSERT(false,"create new page failed!");
-    }else{
-      this->first_page_id_=tmpPage;
-    }
-    //ASSERT(false, "Not implemented yet.");
+    // first page is fetch by buffer_pool_manager
+    page_id_t first_page_id;
+    auto page = reinterpret_cast<TablePage *>(buffer_pool_manager->NewPage(first_page_id));
+    ASSERT(page != nullptr, "Create new page failed!");
+    page->Init(first_page_id, INVALID_PAGE_ID, log_manager_, txn);
+    this->first_page_id_ = first_page_id;
   };
 
   /**
