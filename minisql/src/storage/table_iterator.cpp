@@ -8,11 +8,12 @@ TableIterator::TableIterator(TableHeap *th,RowId *row_id){
   page=reinterpret_cast<TablePage *>(table_heap->buffer_pool_manager_->FetchPage(row_id->GetPageId()));
   row=new Row(*row_id);
   table_heap->GetTuple(row, nullptr);
+  table_heap->buffer_pool_manager_->UnpinPage(page->GetPageId(),false);
 }
 
 TableIterator::TableIterator(TableHeap *th){
   table_heap=th;
-  page=reinterpret_cast<TablePage *>(th->buffer_pool_manager_->FetchPage(th->first_page_id_));
+  page=reinterpret_cast<TablePage *>(th->buffer_pool_manager_->FetchPage(th->GetFirstPageId()));
   RowId *row_id=new RowId();
   if(page->GetFirstTupleRid(row_id)){
     row=new Row(*row_id);
@@ -36,6 +37,7 @@ TableIterator::~TableIterator() {
 }
 
 bool TableIterator::operator==(const TableIterator &itr) const {
+  //find the end
   if(row==nullptr&&itr.row==nullptr){
     return true;
   }
