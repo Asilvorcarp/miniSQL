@@ -102,6 +102,7 @@ void BPLUSTREE_TYPE::StartNewTree(const KeyType &key, const ValueType &value) {
   LeafPage *root_as_leaf = \
       reinterpret_cast<LeafPage *>(new_root_page->GetData());
   root_as_leaf->Init(new_root_pid, INVALID_PAGE_ID, leaf_max_size_);
+  buffer_pool_manager_->UnpinPage(new_root_pid, true);
   // update root page id
   root_page_id_ = new_root_pid;
   UpdateRootPageId(true);
@@ -173,7 +174,8 @@ N *BPLUSTREE_TYPE::Split(N *node) {
   }
   new_node->Init(new_page_id, node->GetParentPageId(), max_size);
   node->MoveHalfTo(new_node, buffer_pool_manager_);
-  
+
+  buffer_pool_manager_->UnpinPage(new_page_id, true);
   return new_node;
 } 
 /*

@@ -22,13 +22,13 @@ bool TableHeap::InsertTuple(Row &row, Transaction *txn) {
   // set next page id
   auto lastPage=reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(lastI));
   lastPage->SetNextPageId(i);
-  buffer_pool_manager_->UnpinPage(lastPage->GetTablePageId(),true);
+  buffer_pool_manager_->UnpinPage(lastI, true);
   // insert to new page
   if(page->InsertTuple(row,schema_,txn,lock_manager_,log_manager_)){
-    buffer_pool_manager_->UnpinPage(page->GetTablePageId(),true);
+    buffer_pool_manager_->UnpinPage(i, true);
     return true;
   }
-  buffer_pool_manager_->UnpinPage(page->GetTablePageId(),true);
+  buffer_pool_manager_->UnpinPage(i, true);
   return false;
 }
 
@@ -119,6 +119,7 @@ void TableHeap::FreeHeap() {
     auto page=reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(i));
     i=page->GetNextPageId();
     // delete page
+    buffer_pool_manager_->UnpinPage(page->GetTablePageId(), false);
     buffer_pool_manager_->DeletePage(page->GetTablePageId());
   }
 }

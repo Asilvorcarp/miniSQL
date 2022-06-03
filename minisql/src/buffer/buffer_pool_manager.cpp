@@ -7,7 +7,11 @@
 BufferPoolManager::BufferPoolManager(size_t pool_size, DiskManager *disk_manager)
         : pool_size_(pool_size), disk_manager_(disk_manager) {
   pages_ = new Page[pool_size_];
-  replacer_ = new LRUReplacer(pool_size_);
+  #ifdef USING_CLOCK_REPLACER
+    replacer_ = new ClockReplacer(pool_size_);
+  #else
+    replacer_ = new LRUReplacer(pool_size_);
+  #endif
   for (size_t i = 0; i < pool_size_; i++) {
     free_list_.emplace_back(i);
   }
@@ -67,7 +71,7 @@ Page *BufferPoolManager::FetchPage(page_id_t page_id) {
     Page *P = &pages_[frame_id];
     // update metadata
     P->page_id_ = page_id;
-    P->pin_count_ = 0;
+    P->pin_count_ = 1;
     P->is_dirty_ = false;
     // read in page content
     disk_manager_->ReadPage(page_id, P->GetData());
@@ -76,25 +80,13 @@ Page *BufferPoolManager::FetchPage(page_id_t page_id) {
 }
 
 // return nullptr if failed
+// Remember to UNPIN after using this method!
 Page *BufferPoolManager::NewPage(page_id_t &page_id) {
   // 0.   Make sure you call AllocatePage!
   // 1.   If all the pages in the buffer pool are pinned, return nullptr.
   // 2.   Pick a victim page P from either the free list or the replacer. Always pick from the free list first.
   // 3.   Update P's metadata, zero out memory and add P to the page table.
   // 4.   Set the page ID output parameter. Return a pointer to P.
-
-  // 1.   If all the pages in the buffer pool are pinned, return nullptr.
-  bool isAllPinned = true;
-  for (uint32_t i = 0; i < pool_size_; i++)
-  {
-    if (pages_[i].GetPinCount() == 0)
-    {
-      isAllPinned = false;
-      break;
-    }
-  }
-  if (isAllPinned == true)
-    return nullptr;
 
   // 2.   Pick a victim page P from either the free list or the replacer. Always pick from the free list first.
   frame_id_t frame_id; // the Page's index in the BufferPool's pages_ array
@@ -103,21 +95,20 @@ Page *BufferPoolManager::NewPage(page_id_t &page_id) {
     free_list_.pop_front();
   } else {
     if (!replacer_->Victim(&frame_id)) {
-      // LOG(ERROR) << "No free page available"; // for debug
+      // 1.   If all the pages in the buffer pool are pinned, return nullptr.
       return nullptr;
     }
+    // Important: remove the Victim from the page table
+    page_table_.erase(pages_[frame_id].GetPageId());
   }
-
-  // Important: remove the Victim from the page table
-  page_table_.erase(pages_[frame_id].GetPageId());
 
   // 3.   Update P's metadata, zero out memory and add P to the page table.
   page_id_t P_page_id = AllocatePage();
   Page *P = &pages_[frame_id];
   // Update P's metadata
   P->page_id_ = P_page_id;
-  P->pin_count_ = 0;
-  P->is_dirty_ = false;
+  P->pin_count_ = 1;
+  P->is_dirty_ = true;
   // Zero out memory
   P->ResetMemory();
   // Add P to the page table
@@ -135,6 +126,9 @@ bool BufferPoolManager::DeletePage(page_id_t page_id) {
   // 2.   If P exists, but has a non-zero pin-count, return false. Someone is using the page.
   // 3.   Otherwise, P can be deleted. Remove P from the page table, reset its metadata and return it to the free list.
   
+  // 0.   Make sure you call DeallocatePage!
+  DeallocatePage(page_id);
+
   // 1.   Search the page table for the requested page (P).
   frame_id_t P_frame_id;
   try
@@ -154,12 +148,12 @@ bool BufferPoolManager::DeletePage(page_id_t page_id) {
   // 3.   Otherwise, P can be deleted. Remove P from the page table, 
   //      reset its metadata and return it to the free list.
   // Remove P from the page table
-  DeallocatePage(page_id);
   page_table_.erase(page_id);
+  replacer_->Pin(P_frame_id); // remove P from the replacer
   // Reset P's metadata
   Page *P = &pages_[P_frame_id];
-  P->page_id_ = page_id;
-  // P->pin_count_ = 0; // already zero
+  P->page_id_ = INVALID_PAGE_ID;
+  P->pin_count_ = 0;
   P->is_dirty_ = false;
   // Add P to the free list
   free_list_.push_back(P_frame_id);

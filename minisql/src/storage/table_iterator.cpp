@@ -19,6 +19,7 @@ TableIterator::TableIterator(TableHeap *th){
     row=new Row(*row_id);
     table_heap->GetTuple(row, nullptr);
   }
+  table_heap->buffer_pool_manager_->UnpinPage(page->GetPageId(), true);
 }
 
 TableIterator::TableIterator() {
@@ -69,7 +70,7 @@ TableIterator &TableIterator::operator++() {
       if(page->GetFirstTupleRid(row_id)){
         row=new Row(*row_id);
         table_heap->GetTuple(row, nullptr);
-        table_heap->buffer_pool_manager_->UnpinPage(page->GetTablePageId(), false);
+        table_heap->buffer_pool_manager_->UnpinPage(page->GetTablePageId(), true);
         return *this;
       }else{
         row=nullptr;

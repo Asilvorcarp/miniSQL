@@ -78,6 +78,7 @@ CatalogManager::CatalogManager(BufferPoolManager *buffer_pool_manager, LockManag
     Page *pge=buffer_pool_manager->FetchPage(CATALOG_META_PAGE_ID);
     this->catalog_meta_=CatalogMeta::NewInstance(this->heap_);
     this->catalog_meta_=CatalogMeta::DeserializeFrom(pge->GetData(),this->heap_);
+    buffer_pool_manager_->UnpinPage(CATALOG_META_PAGE_ID, false);
     auto iter=this->catalog_meta_->table_meta_pages_.begin();
     while(iter!=this->catalog_meta_->table_meta_pages_.end()){
       LoadTable(iter->first,iter->second);
@@ -117,6 +118,7 @@ dberr_t CatalogManager::CreateTable(const string &table_name, TableSchema *schem
   this->tables_[tableID]=table_info;
   this->catalog_meta_->table_meta_pages_[tableID]=pageID;
   tm->SerializeTo(pge->GetData());
+  buffer_pool_manager_->UnpinPage(pageID, true);
   return DB_SUCCESS;
 }
 
@@ -213,6 +215,7 @@ dberr_t CatalogManager::CreateIndex(const std::string &table_name, const string 
       }
       IndexMetadata *im=IndexMetadata::Create(this->catalog_meta_->GetNextIndexId(),index_name,this->table_names_.at(table_name),tmp,this->heap_); 
       im->SerializeTo(pge->GetData());
+      buffer_pool_manager_->UnpinPage(pageID, true);
       index_info=IndexInfo::Create(this->heap_);
       index_info->Init(im,tf,this->buffer_pool_manager_);
       unordered_map<std::string, index_id_t> tmpMap;
@@ -280,8 +283,7 @@ dberr_t CatalogManager::DropTable(const string &table_name) {
   }
   //get the page store the table
   //attention:the table may be stored in more than one page, which causes the more 
-  Page *pge=buffer_pool_manager_->FetchPage(this->catalog_meta_->table_meta_pages_.at(this->table_names_.at(table_name)));
-  buffer_pool_manager_->DeletePage(pge->GetPageId());
+  buffer_pool_manager_->DeletePage(this->catalog_meta_->table_meta_pages_.at(this->table_names_.at(table_name)));
   this->catalog_meta_->table_meta_pages_.erase(this->table_names_.at(table_name));
   this->tables_[this->table_names_.at(table_name)]->GetTableHeap()->FreeHeap();
   this->tables_.erase(this->table_names_.at(table_name));
@@ -295,8 +297,7 @@ dberr_t CatalogManager::DropIndex(const string &table_name, const string &index_
     return DB_INDEX_NOT_FOUND;
   }
   //get the page store the index
-  Page *pge=buffer_pool_manager_->FetchPage(this->catalog_meta_->index_meta_pages_.at(this->index_names_.at(table_name).at(index_name)));
-  buffer_pool_manager_->DeletePage(pge->GetPageId());
+  buffer_pool_manager_->DeletePage( this->catalog_meta_->index_meta_pages_.at(this->index_names_.at(table_name).at(index_name)) );
   this->catalog_meta_->index_meta_pages_.erase(this->index_names_.at(table_name).at(index_name));
   this->indexes_.erase(this->index_names_.at(table_name).at(index_name));
   this->index_names_.at(table_name).erase(index_name);

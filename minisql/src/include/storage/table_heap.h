@@ -107,6 +107,7 @@ private:
     auto page = reinterpret_cast<TablePage *>(buffer_pool_manager->NewPage(first_page_id));
     ASSERT(page != nullptr, "Create new page failed!");
     page->Init(first_page_id, INVALID_PAGE_ID, log_manager_, txn);
+    buffer_pool_manager_->UnpinPage(first_page_id, true);
     this->first_page_id_ = first_page_id;
   };
 
