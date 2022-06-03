@@ -579,6 +579,7 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
     if_select_all = true;
     for (auto &column : table_schema->GetColumns()) {
       selectColumns.push_back(column->GetName());
+      selectColumnIndexs.push_back(column->GetTableInd());
     }
   }else{// select columns
     assert(selectNode->type_ == kNodeColumnList);
@@ -667,9 +668,9 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
   // }
 
   // print the results
-  vector<Column *> tmpColumnVector= table_info->GetSchema()->GetColumns();
-  vector<uint32_t> columnWidth(selectColumnIndexs.size());
-  for(uint32_t i=0;i<columnWidth.size();i++){
+  vector<Column *> tmpColumnVector = table_info->GetSchema()->GetColumns();
+  vector<uint32_t> columnWidth(selectColumns.size());
+  for(uint32_t i=0;i<selectColumns.size();i++){
     columnWidth[i]=selectColumns[i].size();
   }
   for(uint32_t i=0;i<columnWidth.size();i++){
@@ -678,8 +679,8 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
       if(tmpColumnVector[selectColumnIndexs[i]]->GetType()==kTypeInt)
         columnWidth[i]=max(columnWidth[i],(uint32_t)11);
       if(tmpColumnVector[selectColumnIndexs[i]]->GetType()==kTypeFloat)
-        for(uint32_t j=0;j<select_result[i].size();j++){
-          columnWidth[i]=max(columnWidth[i],(uint32_t)select_result[i][j].size());
+        for(uint32_t j=0;j<select_result.size();j++){
+          columnWidth[i]=max(columnWidth[i],(uint32_t)select_result[j][i].size());
         }
   }
   //now columnWidth store the max length of each column
