@@ -632,7 +632,6 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
 
     // traverse the table
     TableIterator iter = table_info->GetTableHeap()->Begin(nullptr);
-    // todo: not using table_info->GetTableHeap()->End() for its bug 
     for (; !iter.isNull(); iter++) {
       Row row = *iter;
       // 2. where // todo: not sure about kTrue
@@ -655,62 +654,61 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
     }
   }
 
-  // todo: make the result printing more pretty
+  // old print:
+  // // print the first line (column names) (if result not empty)
+  // // if (select_count){
+  // //   cout << "i\t";
+  // //   for (auto &columnName : selectColumns){
+  // //     cout << columnName << "\t";
+  // //   }
+  // //   cout << endl;
+  // // }
+  // // print the results
+  // // uint32_t temp_index = 0;
+  // // for (auto &line : select_result){
+  // //   cout << temp_index << "\t";
+  // //   for (auto &field : line){
+  // //     cout << field << "\t";
+  // //   }
+  // //   cout << endl;
+  // //   temp_index++;
+  // // }
 
-  // print the first line (column names) (if result not empty)
-
-  // if (select_count){
-  //   cout << "i\t";
-  //   for (auto &columnName : selectColumns){
-  //     cout << columnName << "\t";
-  //   }
-  //   cout << endl;
-  // }
-
-  // print the results
+  // new print:
   vector<Column *> tmpColumnVector = table_info->GetSchema()->GetColumns();
   vector<uint32_t> columnWidth(selectColumns.size());
   for(uint32_t i=0;i<selectColumns.size();i++){
-    columnWidth[i]=selectColumns[i].size();
+    columnWidth[i] = selectColumns[i].length();
   }
   for(uint32_t i=0;i<columnWidth.size();i++){
       if(tmpColumnVector[selectColumnIndexs[i]]->GetType()==kTypeChar)
-        columnWidth[i]=max(columnWidth[i],tmpColumnVector[selectColumnIndexs[i]]->GetLength());
+        columnWidth[i] = max(columnWidth[i],tmpColumnVector[selectColumnIndexs[i]]->GetLength());
       if(tmpColumnVector[selectColumnIndexs[i]]->GetType()==kTypeInt)
-        columnWidth[i]=max(columnWidth[i],(uint32_t)11);
+        columnWidth[i] = max(columnWidth[i], (uint32_t)9);
       if(tmpColumnVector[selectColumnIndexs[i]]->GetType()==kTypeFloat)
         for(uint32_t j=0;j<select_result.size();j++){
-          columnWidth[i]=max(columnWidth[i],(uint32_t)select_result[j][i].size());
+          columnWidth[i] = max(columnWidth[i],(uint32_t)select_result[j][i].length());
         }
   }
-  //now columnWidth store the max length of each column
-  //print first line(columne name)
+  // now columnWidth store the max length of each column
+  // print first line (columne names)
   if(select_count){
-    cout<<"  ";
+    cout<< setw(to_string(select_count).length()+3)<<"  ";
     for(uint32_t i=0;i<selectColumns.size();i++){
-      cout<<left<<setw(columnWidth[i]+1);
+      cout << left << setw(columnWidth[i]+2) << selectColumns[i];
     }
     cout<<endl;
   }
+  // print the results
   for(uint32_t i=0;i<select_result.size();i++){
-    cout<<i<<" ";
+    cout<< left << setw(to_string(select_count).length()+3) << i;
     for(uint32_t j=0;j<select_result[i].size();j++){
-      cout<<left<<setw(columnWidth[j]+1);
+      cout << left << setw(columnWidth[j]+2) << select_result[i][j];
     }
     cout<<endl;
   }
-  // uint32_t temp_index = 0;
-  // for (auto &line : select_result){
-  //   cout << temp_index << "\t";
-  //   for (auto &field : line){
-  //     cout << field << "\t";
-  //   }
-  //   cout << endl;
-  //   temp_index++;
-  // }
 
-  //记录时间
-  long time_end = clock();    //计时结束
+  long time_end = clock(); // end timing
   cout << select_count << " rows in set (" << (double)(time_end - time_start)/CLOCKS_PER_SEC  << " sec)" << endl;
   
   return DB_SUCCESS;
