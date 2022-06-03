@@ -14,6 +14,7 @@ FILE *yyin;
 
 #define ENABLE_PARSER_DEBUG // debug
 // #define ENABLE_FILE_INPUT // debug, read cmds from file, only support one line 
+// #define ENABLE_FILE_OUTPUT // debug, read cmds from file, only support one line 
 
 void InitGoogleLog(char *argv) {
   FLAGS_logtostderr = true;
@@ -47,6 +48,11 @@ int main(int argc, char **argv) {
   [[maybe_unused]] uint32_t syntax_tree_id = 0;
   #ifdef ENABLE_FILE_INPUT
     std::fstream cmdIn("./test.sql", std::ios::in); // get command from file
+  #endif
+
+  #ifdef ENABLE_FILE_OUTPUT
+  	ofstream fout("output.txt");
+	  cout.rdbuf(fout.rdbuf());
   #endif
 
   while (1) {
@@ -118,6 +124,9 @@ int main(int argc, char **argv) {
   }
   #ifdef ENABLE_FILE_INPUT
     cmdIn.close();
+  #endif
+  #ifdef ENABLE_FILE_OUTPUT
+  	fout.close();
   #endif
   return 0;
 }
