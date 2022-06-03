@@ -42,4 +42,24 @@ private:
   // add your own private member variables here
 };
 
+class ClockReplacer:public Replacer{
+public:
+  explicit ClockReplacer(size_t num_pages);
+
+  ~ClockReplacer() override;
+
+  bool Victim(frame_id_t *frame_id) override;
+
+  void Pin(frame_id_t frame_id) override;
+
+  void Unpin(frame_id_t frame_id) override;
+
+  size_t Size() override;
+
+private:
+  list<frame_id_t> clock_list;
+  unordered_map<frame_id_t,list<frame_id_t>::iterator> clock_map;
+  unordered_map<frame_id_t,bool> ues_bit;
+  list<frame_id_t>::iterator iter;
+};
 #endif  // MINISQL_LRU_REPLACER_H

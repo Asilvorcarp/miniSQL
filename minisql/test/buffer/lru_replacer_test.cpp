@@ -40,3 +40,30 @@ TEST(LRUReplacerTest, SampleTest) {
   lru_replacer.Victim(&value);
   EXPECT_EQ(4, value);
 }
+
+TEST(LRUReplacerTest, ClockTest){
+  ClockReplacer clock_replacer(10);
+  //add to clock replacer
+  clock_replacer.Unpin(1);
+  clock_replacer.Unpin(2);
+  clock_replacer.Unpin(3);
+  clock_replacer.Unpin(1);
+  clock_replacer.Unpin(4);
+  clock_replacer.Unpin(5);
+  clock_replacer.Unpin(1);
+  clock_replacer.Unpin(6);
+
+  EXPECT_EQ(6, clock_replacer.Size());
+
+  int value;
+  clock_replacer.Victim(&value);
+  EXPECT_EQ(6, value);
+  clock_replacer.Victim(&value);
+  EXPECT_EQ(4, clock_replacer.Size());
+  EXPECT_EQ(1, value);
+
+  //6 is not in the list, so nothing happened
+  clock_replacer.Pin(6);
+  clock_replacer.Pin(3);
+  EXPECT_EQ(3, clock_replacer.Size());
+} 
