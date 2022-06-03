@@ -127,7 +127,7 @@ public:
   // ret: DB_PK_DUPLICATE, DB_UNI_KEY_DUPLICATE, DB_TUPLE_TOO_LARGE, DB_SUCCESS
   dberr_t Insert(TableInfo* &tf, Row &row, Transaction *txn);
 
-  dberr_t Update(TableInfo* &tf, Row &row, Transaction *txn);
+  dberr_t Update(TableInfo* &tf, Row &old_row, Row &row, Transaction *txn);
 
   dberr_t Delete(TableInfo* &tf, Row &row, Transaction *txn);
 

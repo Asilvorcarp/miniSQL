@@ -47,13 +47,12 @@ bool TableHeap::MarkDelete(const RowId &rid, Transaction *txn) {
   return true;
 }
 
-bool TableHeap::UpdateTuple(const Row &row, const RowId &rid, Transaction *txn) {
+bool TableHeap::UpdateTuple(Row &row, const RowId &rid, Transaction *txn) {
   auto page=reinterpret_cast<TablePage *>(buffer_pool_manager_ ->FetchPage(rid.GetPageId()));//get the page
   if(page==nullptr){
     return false;
   }
   Row *oldRow=new Row(rid);//get the old row
-  Row newRow=row;
   int type=page->UpdateTuple(row,oldRow,schema_,txn,lock_manager_,log_manager_);//get the update result
   switch(type){
     case 1:buffer_pool_manager_->UnpinPage(page->GetTablePageId(), true);return false;
@@ -66,7 +65,7 @@ bool TableHeap::UpdateTuple(const Row &row, const RowId &rid, Transaction *txn) 
       int preI=i;
       while(i!=INVALID_PAGE_ID){
         page=reinterpret_cast<TablePage *>(buffer_pool_manager_ ->FetchPage(i));
-        if(page->InsertTuple(newRow,schema_,txn,lock_manager_,log_manager_)){
+        if(page->InsertTuple(row,schema_,txn,lock_manager_,log_manager_)){
           oldPage->ApplyDelete(rid,txn,log_manager_);
           buffer_pool_manager_->UnpinPage(page->GetTablePageId(), true);
           return true;
@@ -79,7 +78,7 @@ bool TableHeap::UpdateTuple(const Row &row, const RowId &rid, Transaction *txn) 
       //create a new page
       page=reinterpret_cast<TablePage *>(buffer_pool_manager_->NewPage(i));
       page->Init(preI,i,log_manager_,txn);
-      if(page->InsertTuple(newRow,schema_,txn,lock_manager_,log_manager_)){
+      if(page->InsertTuple(row,schema_,txn,lock_manager_,log_manager_)){
           oldPage->ApplyDelete(rid,txn,log_manager_);
           buffer_pool_manager_->UnpinPage(page->GetTablePageId(), true);
           return true;

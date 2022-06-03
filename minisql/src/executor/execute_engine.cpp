@@ -804,7 +804,6 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
   return DB_SUCCESS;
 }
 
-//dxp   //todo：需要维护index
 dberr_t ExecuteEngine::ExecuteDelete(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteDelete" << std::endl;
@@ -848,7 +847,6 @@ dberr_t ExecuteEngine::ExecuteDelete(pSyntaxNode ast, ExecuteContext *context) {
   return DB_SUCCESS;
 }
 
-//dxp //todo：需要维护index 以及  lack of unique and primary key constraint 
 dberr_t ExecuteEngine::ExecuteUpdate(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteUpdate" << std::endl;
@@ -868,22 +866,20 @@ dberr_t ExecuteEngine::ExecuteUpdate(pSyntaxNode ast, ExecuteContext *context) {
   }
   assert(ret == DB_SUCCESS);
   TableSchema *table_schema = table_info->GetSchema();
-  TableHeap *table_heap = table_info->GetTableHeap();
 
   vector<pSyntaxNode> childs = GetChilds(SetNode); //the things need to modify(parent node)
   vector<Column *> columns = table_schema->GetColumns();
 
+  auto cat = dbs_[current_db_]->catalog_mgr_;
   // traverse the table
   TableIterator iter = table_info->GetTableHeap()->Begin(nullptr);
   int update_count = 0;
 
   for (; !iter.isNull(); iter++) {
-    Row row = *iter;    //old row
+    Row old_row = *iter;    //old row
     // 满足where条件
-    if (!whereNode || GetResultOfNode(whereNode, row, table_schema) == kTrue) {
-      auto row_id = row.GetRowId();
-      std::vector<Field *> &fields = row.GetFields();   //old fields
-
+    if (!whereNode || GetResultOfNode(whereNode, old_row, table_schema) == kTrue) {
+      std::vector<Field *> &fields = old_row.GetFields();   //old fields
       //create a new row
       vector<Field> temp_fields;    //new fields
       for (uint32_t i = 0; i < table_schema->GetColumnCount(); i++) {
@@ -947,11 +943,18 @@ dberr_t ExecuteEngine::ExecuteUpdate(pSyntaxNode ast, ExecuteContext *context) {
         }
       }
       Row new_row(temp_fields);
-      bool ret_bool = table_heap->UpdateTuple(new_row,row_id,nullptr);
-      if (ret_bool == false){
-        cout << "Error: Update failed." << endl;
+      ret = cat->Update(table_info, old_row, new_row, nullptr);
+      if (ret == DB_PK_DUPLICATE){
+        cout << "Error: Primary key duplicate." << endl;
+        return DB_FAILED;
+      }else if (ret == DB_UNI_KEY_DUPLICATE){
+        cout << "Error: Unique key duplicate." << endl;
+        return DB_FAILED;
+      }else if (ret == DB_TUPLE_TOO_LARGE){
+        cout << "Error: Tuple too large." << endl;
         return DB_FAILED;
       }
+      assert(ret == DB_SUCCESS);
       update_count++;
     }
   }

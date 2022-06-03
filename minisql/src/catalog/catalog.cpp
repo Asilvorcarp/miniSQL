@@ -139,6 +139,7 @@ dberr_t CatalogManager::GetTables(vector<TableInfo *> &tables) const {
   return DB_SUCCESS;
 }
 
+// new: a column has no duplicated value
 bool CatalogManager::isNotDuplicated(vector<uint32_t> &key_map, vector<Column *> &cols, TableInfo* &table_info){
   auto key_schema=Schema::ShallowCopySchema(table_info->GetSchema(), key_map, this->heap_);
   TableIterator iter = table_info->GetTableHeap()->Begin(nullptr);
@@ -156,7 +157,8 @@ bool CatalogManager::isNotDuplicated(vector<uint32_t> &key_map, vector<Column *>
   }
   return true;
 }
-            
+
+// new: mark a column as unique
 inline void markAsUnique(vector<uint32_t> &key_map, vector<Column *> &cols){
   for (auto &i : key_map){
     cols[i]->SetUnique(true);
@@ -402,11 +404,21 @@ dberr_t CatalogManager::Insert(TableInfo* &tf, Row &row, Transaction *txn) {
 
 // new: update with checking primary key & unique and maintaining indexes
 // ret: DB_PK_DUPLICATE, DB_UNI_KEY_DUPLICATE, DB_TUPLE_TOO_LARGE, DB_SUCCESS
-dberr_t CatalogManager::Update(TableInfo* &tf, Row &row, Transaction *txn) {
+dberr_t CatalogManager::Update(TableInfo* &tf, Row &old_row, Row &row, Transaction *txn) {
   // 1. check primary key and unique key
+  row.SetRowId(old_row.GetRowId()); // might changed later
   auto uni_pk_maps = tf->GetUniPKMaps();
   for (auto &key_map : uni_pk_maps){
-    Row key(row, key_map);
+    // if not changed, skip
+    auto key_schema = Schema::ShallowCopySchema(tf->GetSchema(), key_map, this->heap_);
+    Row old_key(old_row, key_map), key(row, key_map);
+    GenericKey<64> old_index_key, index_key;
+    old_index_key.SerializeFromKey(old_key, key_schema);
+    index_key.SerializeFromKey(key, key_schema);
+    if (index_key == old_index_key){
+      continue;
+    }
+    // changed, check
     vector<IndexInfo *> indexInfos;
     this->GetIndexesForKeyMap(tf->GetTableName(), key_map, indexInfos);
     auto indexInfo = indexInfos[0]; // one index is enough for checking
@@ -422,9 +434,9 @@ dberr_t CatalogManager::Update(TableInfo* &tf, Row &row, Transaction *txn) {
     }
     assert(ret == DB_KEY_NOT_FOUND);
   }
-  // 2. do insert
-  bool ret_bool = tf->GetTableHeap()->InsertTuple(row, nullptr);
-  if (!ret_bool) {
+  // 2. do update
+  bool ret_bool = tf->GetTableHeap()->UpdateTuple(row, old_row.GetRowId(), nullptr);
+  if (ret_bool == false){
     // error: the tuple is too large (>= page_size)
     return DB_TUPLE_TOO_LARGE;
   }
@@ -433,7 +445,9 @@ dberr_t CatalogManager::Update(TableInfo* &tf, Row &row, Transaction *txn) {
   GetTableIndexes(tf->GetTableName(), indexes);
   for (auto &index : indexes){
     auto key_map = index->GetKeyMapping();
+    Row old_key(old_row, key_map);
     Row key(row, key_map);
+    index->GetIndex()->RemoveEntry(old_key, old_row.GetRowId(), txn);
     index->GetIndex()->InsertEntry(key, row.GetRowId(), txn);
   }
   return DB_SUCCESS;
