@@ -830,23 +830,21 @@ dberr_t ExecuteEngine::ExecuteDelete(pSyntaxNode ast, ExecuteContext *context) {
   }
   assert(ret == DB_SUCCESS);
   TableSchema *table_schema = table_info->GetSchema();
-  TableHeap *table_heap = table_info->GetTableHeap();
 
+  auto cat = dbs_[current_db_]->catalog_mgr_;
   // traverse the table
   TableIterator iter = table_info->GetTableHeap()->Begin(nullptr);
-  // TableIterator iter_end = table_info->GetTableHeap()->End(); // todo: not using it for bug in End()  ??
   int delete_count = 0;
-  // vector<vector<string>> select_result;
-  for (; !iter.isNull(); iter++) {
+  for (; !iter.isNull(); iter++) { 
     Row row = *iter;
     // 2. where // todo: not sure about kTrue
     if (!whereNode || GetResultOfNode(whereNode, row, table_schema) == kTrue) {
-      auto row_id = row.GetRowId();
-      bool ret_bool = table_heap->MarkDelete(row_id,nullptr);
-      if (ret_bool == false){
+      dberr_t ret = cat->Delete(table_info, row, nullptr);
+      if (ret == DB_FAILED){
         cout << "Error: Delete failed." << endl;
         return DB_FAILED;
       }
+      assert(ret == DB_SUCCESS);
       delete_count++;
     }
   }

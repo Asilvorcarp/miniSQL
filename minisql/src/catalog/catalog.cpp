@@ -361,7 +361,7 @@ dberr_t CatalogManager::GetTable(const table_id_t table_id, TableInfo *&table_in
   return DB_FAILED;
 }
 
-// new: insert with checking primary key & unique
+// new: insert with checking primary key & unique and maintaining indexes
 // ret: DB_PK_DUPLICATE, DB_UNI_KEY_DUPLICATE, DB_TUPLE_TOO_LARGE, DB_SUCCESS
 dberr_t CatalogManager::Insert(TableInfo* &tf, Row &row, Transaction *txn) {
   // 1. check primary key and unique key
@@ -400,14 +400,62 @@ dberr_t CatalogManager::Insert(TableInfo* &tf, Row &row, Transaction *txn) {
   return DB_SUCCESS;
 }
 
-// new: todo
-dberr_t CatalogManager::Update(CatalogManager* &cat, Row &row, Transaction *txn) {
-  // todo
+// new: update with checking primary key & unique and maintaining indexes
+// ret: DB_PK_DUPLICATE, DB_UNI_KEY_DUPLICATE, DB_TUPLE_TOO_LARGE, DB_SUCCESS
+dberr_t CatalogManager::Update(TableInfo* &tf, Row &row, Transaction *txn) {
+  // 1. check primary key and unique key
+  auto uni_pk_maps = tf->GetUniPKMaps();
+  for (auto &key_map : uni_pk_maps){
+    Row key(row, key_map);
+    vector<IndexInfo *> indexInfos;
+    this->GetIndexesForKeyMap(tf->GetTableName(), key_map, indexInfos);
+    auto indexInfo = indexInfos[0]; // one index is enough for checking
+    vector<RowId> scanRet;
+    dberr_t ret = indexInfo->GetIndex()->ScanKey(key, scanRet, txn);
+    if (ret != DB_KEY_NOT_FOUND){
+      if (key_map == tf->GetPrimaryKeyIndexs()){
+        // error: primary key duplicate
+        return DB_PK_DUPLICATE;
+      }
+      // error: unique key duplicate
+      return DB_UNI_KEY_DUPLICATE;
+    }
+    assert(ret == DB_KEY_NOT_FOUND);
+  }
+  // 2. do insert
+  bool ret_bool = tf->GetTableHeap()->InsertTuple(row, nullptr);
+  if (!ret_bool) {
+    // error: the tuple is too large (>= page_size)
+    return DB_TUPLE_TOO_LARGE;
+  }
+  // 3. maintain indexes
+  vector<IndexInfo *> indexes;
+  GetTableIndexes(tf->GetTableName(), indexes);
+  for (auto &index : indexes){
+    auto key_map = index->GetKeyMapping();
+    Row key(row, key_map);
+    index->GetIndex()->InsertEntry(key, row.GetRowId(), txn);
+  }
   return DB_SUCCESS;
 }
 
-// new: todo
-dberr_t CatalogManager::Delete(CatalogManager* &cat, Row &row, Transaction *txn) {
-  // todo
+// new: delete with maintaining indexes
+// ret: DB_FAILED, DB_SUCCESS
+dberr_t CatalogManager::Delete(TableInfo* &tf, Row &row, Transaction *txn) {
+  // 1. do delete
+  auto row_id = row.GetRowId();
+  bool ret_bool = tf->GetTableHeap()->MarkDelete(row_id, nullptr);
+  if (!ret_bool) {
+    // error: Delete failed.
+    return DB_FAILED;
+  }
+  // 2. maintain indexes
+  vector<IndexInfo *> indexes;
+  GetTableIndexes(tf->GetTableName(), indexes);
+  for (auto &index : indexes){
+    auto key_map = index->GetKeyMapping();
+    Row key(row, key_map);
+    index->GetIndex()->RemoveEntry(key, row_id, txn);
+  }
   return DB_SUCCESS;
 }
