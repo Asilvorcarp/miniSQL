@@ -287,13 +287,15 @@ dberr_t ExecuteEngine::ExecuteDropTable(pSyntaxNode ast, ExecuteContext *context
   LOG(INFO) << "ExecuteShowTables" << std::endl;
   LOG(INFO) << "Drop Table:" << tableName << std::endl;
 #endif
+  long time_start = clock();
   dberr_t ret = dbs_[current_db_]->catalog_mgr_->DropTable(tableName);
   if(ret==DB_TABLE_NOT_EXIST){
     cout << "Error: Can't find " << tableName << "." << endl;
     return DB_TABLE_NOT_EXIST;
   }
   assert(ret == DB_SUCCESS);
-  cout << "Table " << tableName << " dropped." << endl;
+  long time_end = clock();
+  cout << "Table " << tableName << " dropped. (" << (time_end - time_start)*1.0/CLOCKS_PER_SEC  << " sec)" << endl;
   return DB_SUCCESS;
 }
 
