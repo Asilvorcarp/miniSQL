@@ -118,7 +118,8 @@ void TableHeap::FreeHeap() {
   while(i!=INVALID_PAGE_ID){
     auto page=reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(i));
     i=page->GetNextPageId();
-    delete page;
+    // delete page
+    buffer_pool_manager_->DeletePage(page->GetTablePageId());
   }
 }
 

@@ -287,14 +287,14 @@ dberr_t ExecuteEngine::ExecuteDropTable(pSyntaxNode ast, ExecuteContext *context
   LOG(INFO) << "ExecuteShowTables" << std::endl;
   LOG(INFO) << "Drop Table:" << tableName << std::endl;
 #endif
-  if(dbs_[current_db_]->catalog_mgr_->DropTable(tableName)==DB_SUCCESS){
-    cout << "Error: Table " << tableName << " dropped." << endl;
-    return DB_SUCCESS;
-  }
-  else{
+  dberr_t ret = dbs_[current_db_]->catalog_mgr_->DropTable(tableName);
+  if(ret==DB_TABLE_NOT_EXIST){
     cout << "Error: Can't find " << tableName << "." << endl;
     return DB_TABLE_NOT_EXIST;
   }
+  assert(ret == DB_SUCCESS);
+  cout << "Table " << tableName << " dropped." << endl;
+  return DB_SUCCESS;
 }
 
 dberr_t ExecuteEngine::ExecuteShowIndexes(pSyntaxNode ast, ExecuteContext *context) {
