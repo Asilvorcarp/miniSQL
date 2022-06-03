@@ -370,7 +370,7 @@ dberr_t ExecuteEngine::ExecuteDropIndex(pSyntaxNode ast, ExecuteContext *context
     return DB_INDEX_NOT_FOUND;
   }
   else{
-    cout << "Drop " << "index " << indexName << ","<< ret << " in total." <<std::endl;
+    cout << "Drop " << "index " << indexName << ", "<< ret << " in total." <<std::endl;
     return DB_SUCCESS;
   }
 }
@@ -654,6 +654,8 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
     }
   }
 
+  long time_end = clock(); // end timing
+
   // old print:
   // // print the first line (column names) (if result not empty)
   // // if (select_count){
@@ -675,40 +677,34 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
   // // }
 
   // new print:
-  vector<Column *> tmpColumnVector = table_info->GetSchema()->GetColumns();
   vector<uint32_t> columnWidth(selectColumns.size());
   for(uint32_t i=0;i<selectColumns.size();i++){
     columnWidth[i] = selectColumns[i].length();
   }
   for(uint32_t i=0;i<columnWidth.size();i++){
-      if(tmpColumnVector[selectColumnIndexs[i]]->GetType()==kTypeChar)
-        columnWidth[i] = max(columnWidth[i],tmpColumnVector[selectColumnIndexs[i]]->GetLength());
-      if(tmpColumnVector[selectColumnIndexs[i]]->GetType()==kTypeInt)
-        columnWidth[i] = max(columnWidth[i], (uint32_t)9);
-      if(tmpColumnVector[selectColumnIndexs[i]]->GetType()==kTypeFloat)
-        for(uint32_t j=0;j<select_result.size();j++){
-          columnWidth[i] = max(columnWidth[i],(uint32_t)select_result[j][i].length());
-        }
+    for(uint32_t j=0;j<select_result.size();j++){
+      columnWidth[i] = max(columnWidth[i], (uint32_t)select_result[j][i].length());
+    }
   }
   // now columnWidth store the max length of each column
   // print first line (columne names)
+  uint32_t between = 4; // the space between two columns
   if(select_count){
-    cout<< setw(to_string(select_count).length()+3)<<"  ";
+    cout<< setw(to_string(select_count).length()+between)<<"  ";
     for(uint32_t i=0;i<selectColumns.size();i++){
-      cout << left << setw(columnWidth[i]+2) << selectColumns[i];
+      cout << left << setw(columnWidth[i]+between) << selectColumns[i];
     }
     cout<<endl;
   }
   // print the results
   for(uint32_t i=0;i<select_result.size();i++){
-    cout<< left << setw(to_string(select_count).length()+3) << i;
+    cout<< left << setw(to_string(select_count).length()+between) << i;
     for(uint32_t j=0;j<select_result[i].size();j++){
-      cout << left << setw(columnWidth[j]+2) << select_result[i][j];
+      cout << left << setw(columnWidth[j]+between) << select_result[i][j];
     }
     cout<<endl;
   }
 
-  long time_end = clock(); // end timing
   cout << select_count << " rows in set (" << (double)(time_end - time_start)/CLOCKS_PER_SEC  << " sec)" << endl;
   
   return DB_SUCCESS;

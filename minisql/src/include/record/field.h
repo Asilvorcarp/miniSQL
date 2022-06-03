@@ -84,8 +84,8 @@ public:
   }
   
   // new: convert to string
-  // if precision_of_float is -1, then use default precision
-  string ToString(int precision_of_float = -1) const {
+  // default precision: 2  (C++ default is 6)
+  string ToString(int precision_of_float = 2) const {
     if (is_null_) {
       return "NULL";
     }
@@ -94,8 +94,6 @@ public:
       case kTypeInt:
         return to_string(value_.integer_);
       case kTypeFloat:
-        if (precision_of_float == -1)
-          return to_string(value_.float_);
         buf.precision(precision_of_float); // set precision
         buf.setf(std::ios::fixed);       // fixed notation
         buf << value_.float_;
