@@ -24,8 +24,16 @@ public:
     return;
   }
 
+  struct HashFunction
+  {
+    size_t operator()(const GenericKey& key) const
+    {
+      return std::hash<std::string>()(string(key.data));
+    }
+  };
+
   // compare
-  inline bool operator==(const GenericKey &other) {
+  inline bool operator==(const GenericKey &other) const {
     return memcmp(data, other.data, KeySize) == 0;
   }
 

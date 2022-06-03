@@ -145,14 +145,14 @@ dberr_t CatalogManager::GetTables(vector<TableInfo *> &tables) const {
 bool CatalogManager::isNotDuplicated(vector<uint32_t> &key_map, vector<Column *> &cols, TableInfo* &table_info){
   auto key_schema=Schema::ShallowCopySchema(table_info->GetSchema(), key_map, this->heap_);
   TableIterator iter = table_info->GetTableHeap()->Begin(nullptr);
-  set<GenericKey<64>> keys;
+  unordered_set<GenericKey<64>, GenericKey<64>::HashFunction> keys;
   for (; !iter.isNull(); iter++) {
     Row row = *iter;
     Row keyRow(row, key_map);
     GenericKey<64> key;
     key.SerializeFromKey(keyRow, key_schema);
-    auto ret = keys.insert(key);
-    if (ret.second == false) {
+    auto ret = keys.find(key);
+    if (ret != keys.end()) {
       // duplicated (not inserted)
       return false;
     }
