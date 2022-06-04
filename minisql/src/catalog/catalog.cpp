@@ -151,8 +151,8 @@ bool CatalogManager::isNotDuplicated(vector<uint32_t> &key_map, vector<Column *>
     Row keyRow(row, key_map);
     GenericKey<64> key;
     key.SerializeFromKey(keyRow, key_schema);
-    auto ret = keys.find(key);
-    if (ret != keys.end()) {
+    auto ret = keys.insert(key);
+    if (ret.second == false) {
       // duplicated (not inserted)
       return false;
     }
