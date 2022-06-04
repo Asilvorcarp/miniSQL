@@ -602,6 +602,7 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
 
   int select_count = 0;
   vector<vector<string>> select_result;
+  uint32_t float_precision = 2;
 
   // accelerate query using index if possible
   IndexInfo* index_info = nullptr; // output of canAccelerate
@@ -620,11 +621,11 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
       std::vector<Field *> fields = row->GetFields();
       if (if_select_all){
         for (size_t i = 0; i < fields.size(); i++) {
-          result_line.push_back(fields[i]->ToString());
+          result_line.push_back(fields[i]->ToString(float_precision));
         }
       }else{
         for (auto &i : selectColumnIndexs){
-          result_line.push_back(fields[i]->ToString());
+          result_line.push_back(fields[i]->ToString(float_precision));
         }
       }
       select_result.push_back(result_line);
@@ -643,11 +644,11 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
         std::vector<Field *> fields = row.GetFields();
         if (if_select_all){
           for (size_t i = 0; i < fields.size(); i++) {
-            result_line.push_back(fields[i]->ToString());
+            result_line.push_back(fields[i]->ToString(float_precision));
           }
         }else{
           for (auto &i : selectColumnIndexs){
-            result_line.push_back(fields[i]->ToString());
+            result_line.push_back(fields[i]->ToString(float_precision));
           }
         }
         select_result.push_back(result_line);
