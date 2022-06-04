@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <time.h>
 #include <iomanip>
+#include <fstream>
 
 using namespace std;
 
@@ -17,6 +18,19 @@ extern int yyparse(void);
 #define ENABLE_EXECUTE_DEBUG // debug
 
 ExecuteEngine::ExecuteEngine() {
+  ifstream ifs;
+  ifs.open("databases.txt",ios::in);
+  if(!ifs.is_open()){
+    cout<<"open databases.txt failed."<<endl;
+  }
+  int size = 0;
+  ifs>>size;
+  for(int i = 0;i<size;i++){
+    string database_name;
+    ifs>>database_name;
+    auto temp = new DBStorageEngine(database_name,false);
+    this->dbs_[database_name] = temp;
+  }
 }
 
 dberr_t ExecuteEngine::Execute(pSyntaxNode ast, ExecuteContext *context) {
@@ -1198,5 +1212,14 @@ dberr_t ExecuteEngine::ExecuteQuit(pSyntaxNode ast, ExecuteContext *context) {
 #endif
   ASSERT(ast->type_ == kNodeQuit, "Unexpected node type.");
   context->flag_quit_ = true;
+  ofstream ofs;
+  ofs.open("databases.txt",ios::out);
+  if (!ofs.is_open()){
+    cout<<"open databases.txt failed."<<endl;
+  }
+  ofs<<this->dbs_.size()<<endl;
+  for (auto temp:this->dbs_){
+    ofs<<temp.first<<endl;
+  }
   return DB_SUCCESS;
 }
