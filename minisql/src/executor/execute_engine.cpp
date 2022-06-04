@@ -260,15 +260,25 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
   // create index for primary key
   IndexInfo *pkIndexInfo = nullptr;
   string pkIndexName = cat->AutoGenPKIndexName(tableName);
+  #ifdef SUPPORT_RELEASE_VERSION
+  cat->CreateIndex(tableName, pkIndexName, 
+                  primaryKeys, nullptr, pkIndexInfo);
+  #else
   dberr_t pk_ret = cat->CreateIndex(tableName, pkIndexName, 
                         primaryKeys, nullptr, pkIndexInfo);
+  #endif
   assert(pk_ret == DB_SUCCESS);
   // create index for unique key
   for (auto &uniqueKey : uniqueKeys) {
     IndexInfo *uniqueIndexInfo = nullptr;
     string uniqueIndexName = cat->AutoGenUniIndexName(tableName, uniqueKey);
+    #ifdef SUPPORT_RELEASE_VERSION
+    cat->CreateIndex(tableName, uniqueIndexName, 
+                    {uniqueKey}, nullptr, uniqueIndexInfo);
+    #else
     dberr_t uni_ret = cat->CreateIndex(tableName, uniqueIndexName, 
                            {uniqueKey}, nullptr, uniqueIndexInfo);
+    #endif
     assert(uni_ret == DB_SUCCESS);
   }
   long time_end = clock();

@@ -225,7 +225,11 @@ void BPLUSTREE_TYPE::InsertIntoParent(BPlusTreePage *old_node, const KeyType &ke
 
   if (parent->GetSize() < parent->GetMaxSize()) 
   { // parent not full
-    int sizeNow = parent->InsertNodeAfter(old_node->GetPageId(), key, new_node->GetPageId());
+    #ifdef SUPPORT_RELEASE_VERSION
+      parent->InsertNodeAfter(old_node->GetPageId(), key, new_node->GetPageId());
+    #else
+      int sizeNow = parent->InsertNodeAfter(old_node->GetPageId(), key, new_node->GetPageId());
+    #endif
     assert(sizeNow <= parent->GetMaxSize());
     buffer_pool_manager_->UnpinPage(old_node->GetPageId(), true);
     buffer_pool_manager_->UnpinPage(new_node->GetPageId(), true);

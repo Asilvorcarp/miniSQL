@@ -7,6 +7,8 @@
 
 // new: using clock replacer (rather than LRU replacer)
 #define USING_CLOCK_REPLACER
+// new: if CMake in Release mode, enable this
+// #define SUPPORT_RELEASE_VERSION
 
 
 static constexpr int INVALID_PAGE_ID = -1;           // invalid page id

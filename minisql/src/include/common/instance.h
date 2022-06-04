@@ -34,6 +34,7 @@ public:
       ASSERT(page != nullptr && id == CATALOG_META_PAGE_ID, "Failed to allocate catalog meta page.");
       page = bpm_->NewPage(id);
       ASSERT(page != nullptr && id == INDEX_ROOTS_PAGE_ID, "Failed to allocate header page.");
+      page->GetPageId();
 
       bpm_->UnpinPage(CATALOG_META_PAGE_ID, false);
       bpm_->UnpinPage(INDEX_ROOTS_PAGE_ID, false);
