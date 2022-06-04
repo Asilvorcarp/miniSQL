@@ -101,6 +101,13 @@ public:
     return uniAndPriKeyMaps;
   }
 
+  // new: get row
+  inline Row* GetRow(RowId rid, Transaction* txn = nullptr) const {
+    Row* row = new Row(rid);
+    table_heap_->GetTuple(row, txn);
+    return row;
+  }
+
   inline Schema *GetSchema() const { return table_meta_->schema_; }
 
   inline page_id_t GetRootPageId() const { return table_meta_->root_page_id_; }

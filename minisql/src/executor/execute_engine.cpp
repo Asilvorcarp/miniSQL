@@ -488,7 +488,7 @@ inline bool isEqual(const pSyntaxNode &ast) {
 }
 
 bool ExecuteEngine::canAccelerate(pSyntaxNode whereNode, TableInfo* &table_info, CatalogManager* &cat,
-                                  IndexInfo* &index, Row* &key){
+                                 vector<Row*> &result) {
   if (whereNode == nullptr) {
     return false;
   }
@@ -538,7 +538,7 @@ bool ExecuteEngine::canAccelerate(pSyntaxNode whereNode, TableInfo* &table_info,
   if (index_list.size() == 0) {
     return false;
   }
-  index = index_list[0];
+  auto index = index_list[0];
   // get key
   vector<Field> fields;
   for (uint32_t i = 0; i < val_key_map.size(); i++) {
@@ -546,7 +546,13 @@ bool ExecuteEngine::canAccelerate(pSyntaxNode whereNode, TableInfo* &table_info,
     field.FromString(val_key_map[i].first);
     fields.push_back(field);
   }
-  key = new Row(fields);
+  auto key = new Row(fields);
+  vector<RowId> scanRet;
+  index->GetIndex()->ScanKey(*key, scanRet, nullptr);
+  assert(scanRet.size() <= 1);
+  for (auto &rid : scanRet) {
+    result.push_back(table_info->GetRow(rid));
+  }
   return true;
 }
 
@@ -605,18 +611,12 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
   uint32_t float_precision = 2;
 
   // accelerate query using index if possible
-  IndexInfo* index_info = nullptr; // output of canAccelerate
-  Row* key;                        // output of canAccelerate
-  if (canAccelerate(whereNode, table_info, dbs_[current_db_]->catalog_mgr_, index_info, key)){
+  vector<Row*> result_rows;  // output of canAccelerate
+  if (canAccelerate(whereNode, table_info, dbs_[current_db_]->catalog_mgr_, result_rows)){
     // accelerate using index
-    vector<RowId> scanRet;
-    index_info->GetIndex()->ScanKey(*key, scanRet, nullptr);
-    assert(scanRet.size() <= 1);
-    select_count = scanRet.size();
+    select_count = result_rows.size();
     // select
-    for (auto &rowId: scanRet){
-      Row* row = new Row(rowId);
-      table_info->GetTableHeap()->GetTuple(row, nullptr);
+    for (auto &row: result_rows){
       vector<string> result_line;
       std::vector<Field *> fields = row->GetFields();
       if (if_select_all){
