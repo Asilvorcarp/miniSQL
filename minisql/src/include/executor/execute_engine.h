@@ -42,10 +42,15 @@ public:
 
 private:
 
-  // new: input: whereNode, table_info and CatalogManager.
-  //      return: if a query is possible to accelerate.
-  //      if possible, output: result rows.
-  bool canAccelerate(pSyntaxNode whereNode, TableInfo* &table_info, CatalogManager* &cat,
+  /** new:
+   *  input: whereNode, table_info and CatalogManager.
+   *    return: 
+   *      0b000: not possible to accelerate;
+   *      0b001: possible to accelerate, need filter;
+   *      0b010: possible to accelerate, no filter;
+   *    if possible, output: result rows.
+   **/
+  uint8_t canAccelerate(pSyntaxNode whereNode, TableInfo* &table_info, CatalogManager* &cat,
                       vector<Row*> &result);
 
   dberr_t ExecuteCreateDatabase(pSyntaxNode ast, ExecuteContext *context);

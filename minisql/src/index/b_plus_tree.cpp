@@ -453,21 +453,12 @@ INDEXITERATOR_TYPE BPLUSTREE_TYPE::Begin() {
  */
 INDEX_TEMPLATE_ARGUMENTS
 INDEXITERATOR_TYPE BPLUSTREE_TYPE::Begin(const KeyType &key) {
-  LeafPage *start_leaf = FindLeafPage(key);
-  int start_index = 0;
-  if (start_leaf != nullptr) {
-    // KeyIndex() is the index which key inserts
-    int index = start_leaf->KeyIndex(key, comparator_);
-    if (start_leaf->GetSize() > 0 && index < start_leaf->GetSize() &&
-        comparator_(key, start_leaf->GetItem(index).first) == 0) {
-      // key exists in leaf page
-      start_index = index;
-    } else {
-      // not exists
-      start_index = start_leaf->GetSize();
-    }
+  LeafPage *leaf = FindLeafPage(key);
+  int index = 0;
+  if (leaf != nullptr) {
+    index = leaf->KeyIndex(key, comparator_);
   }
-  return INDEXITERATOR_TYPE(start_leaf, start_index, buffer_pool_manager_);
+  return INDEXITERATOR_TYPE(leaf, index, buffer_pool_manager_);
 }
 
 /*
@@ -477,14 +468,8 @@ INDEXITERATOR_TYPE BPLUSTREE_TYPE::Begin(const KeyType &key) {
  */
 INDEX_TEMPLATE_ARGUMENTS
 INDEXITERATOR_TYPE BPLUSTREE_TYPE::End() {
-  INDEXITERATOR_TYPE iter = Begin();
-  INDEXITERATOR_TYPE lastIter = iter; // last valid one
-  while (iter.isValid())
-  {
-    lastIter = iter;
-    ++iter;
-  }
-  return lastIter;
+  INDEXITERATOR_TYPE iter_end(nullptr, 0, buffer_pool_manager_);
+  return iter_end;
 }
 
 /*****************************************************************************

@@ -61,6 +61,14 @@ BPLUSTREE_INDEX_TYPE::GetBeginIterator(const KeyType &key) {
 }
 
 INDEX_TEMPLATE_ARGUMENTS
+INDEXITERATOR_TYPE
+BPLUSTREE_INDEX_TYPE::GetBeginIterator(const Row &key) {
+  KeyType index_key;
+  index_key.SerializeFromKey(key, key_schema_);
+  return container_.Begin(index_key);
+}
+
+INDEX_TEMPLATE_ARGUMENTS
 INDEXITERATOR_TYPE BPLUSTREE_INDEX_TYPE::GetEndIterator() {
   return container_.End();
 }

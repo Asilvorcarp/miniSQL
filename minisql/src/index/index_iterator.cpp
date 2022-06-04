@@ -16,19 +16,23 @@ INDEX_TEMPLATE_ARGUMENTS const MappingType &INDEXITERATOR_TYPE::operator*() {
   return leaf_->GetItem(index_);
 }
 
+INDEX_TEMPLATE_ARGUMENTS const MappingType* INDEXITERATOR_TYPE::operator->() {
+  return &(leaf_->GetItem(index_));
+}
+
 INDEX_TEMPLATE_ARGUMENTS INDEXITERATOR_TYPE &INDEXITERATOR_TYPE::operator++() {
   index_++;
   if (index_ >= leaf_->GetSize()) {
+    index_ = 0;
     page_id_t next_page_id = leaf_->GetNextPageId();
+    bpm_->UnpinPage(leaf_->GetPageId(), false);
     if (next_page_id == INVALID_PAGE_ID) {
-      bpm_->UnpinPage(leaf_->GetPageId(), false);
+      // end of iteration
       leaf_ = nullptr;
     } else {
       // update leaf to next_page
       Page *next_page = bpm_->FetchPage(next_page_id);
-      bpm_->UnpinPage(leaf_->GetPageId(), false);
       leaf_ = reinterpret_cast<B_PLUS_TREE_LEAF_PAGE_TYPE *>(next_page->GetData());
-      index_ = 0;
     }
   }
   return *this;
@@ -36,10 +40,7 @@ INDEX_TEMPLATE_ARGUMENTS INDEXITERATOR_TYPE &INDEXITERATOR_TYPE::operator++() {
 
 INDEX_TEMPLATE_ARGUMENTS
 bool INDEXITERATOR_TYPE::operator==(const IndexIterator &itr) const {
-  if (leaf_ == itr.leaf_ && index_ == itr.index_ && bpm_ == itr.bpm_) {
-    return true;
-  }
-  return false;
+  return leaf_ == itr.leaf_ && index_ == itr.index_ && bpm_ == itr.bpm_;
 }
 
 INDEX_TEMPLATE_ARGUMENTS

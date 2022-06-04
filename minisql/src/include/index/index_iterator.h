@@ -16,6 +16,8 @@ public:
   /** Return the key/value pair this iterator is currently pointing at. */
   const MappingType &operator*();
 
+  const MappingType *operator->();
+
   /** Move to the next key/value pair.*/
   IndexIterator &operator++();
 
@@ -24,11 +26,6 @@ public:
 
   /** Return whether two iterators are not equal. */
   bool operator!=(const IndexIterator &itr) const;
-
-  // new
-  bool isValid() const {
-    return leaf_ != nullptr;
-  }
 
 private:
   // add your own private member variables here

@@ -23,6 +23,8 @@ public:
 
   INDEXITERATOR_TYPE GetBeginIterator(const KeyType &key);
 
+  INDEXITERATOR_TYPE GetBeginIterator(const Row &key);
+
   INDEXITERATOR_TYPE GetEndIterator();
 
 protected:

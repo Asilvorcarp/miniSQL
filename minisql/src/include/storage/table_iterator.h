@@ -38,6 +38,11 @@ public:
 
   Row *operator->();
 
+  // new: get row pointer
+  Row* GetRow() {
+    return row;
+  }
+
   TableIterator &operator++();
 
   TableIterator operator++(int);

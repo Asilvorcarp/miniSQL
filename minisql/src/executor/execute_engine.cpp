@@ -5,6 +5,8 @@
 #include <time.h>
 #include <iomanip>
 
+using namespace std;
+
 extern "C" {
 extern int yyparse(void);
 #include "parser/minisql_lex.h"
@@ -479,15 +481,48 @@ CmpBool GetResultOfNode(const pSyntaxNode &ast, const Row &row, TableSchema *sch
   return kFalse;
 }
 
+// new: is and connector
 inline bool isAnd(const pSyntaxNode &ast) {
   return ast->type_ == kNodeConnector && string(ast->val_) == "and";
 }
 
+// new: is equal CompareOperator
 inline bool isEqual(const pSyntaxNode &ast) {
   return ast->type_ == kNodeCompareOperator && string(ast->val_) == "=";
 }
 
-bool ExecuteEngine::canAccelerate(pSyntaxNode whereNode, TableInfo* &table_info, CatalogManager* &cat,
+// new: if it's lower/higher than CompareOperator. if so get the compare type.
+inline uint8_t isLH(const pSyntaxNode &ast) {
+  if (ast->type_ != kNodeCompareOperator) {
+    return 0;
+  }else if (string(ast->val_) == "<") {
+    return 0b0010;
+  }else if (string(ast->val_) == "<=") {
+    return 0b1010;
+  }else if (string(ast->val_) == ">") {
+    return 0b0110;
+  }else if (string(ast->val_) == ">=") {
+    return 0b1110;
+  }
+  return 0;
+}
+
+// new: if it's equal/lower/higher CompareOperator. if so get the compare type.
+inline uint8_t isELH(const pSyntaxNode &ast) {
+  if( isEqual(ast) )
+    return 0b0001;
+  return isLH(ast);
+}
+
+struct map_cmp_val {
+  uint32_t map;
+  uint8_t cmp;
+  string val;
+  IndexInfo* index;
+  vector<RowId> rids;
+};
+
+uint8_t ExecuteEngine::canAccelerate(pSyntaxNode whereNode, TableInfo* &table_info, CatalogManager* &cat,
                                  vector<Row*> &result) {
   if (whereNode == nullptr) {
     return false;
@@ -497,63 +532,161 @@ bool ExecuteEngine::canAccelerate(pSyntaxNode whereNode, TableInfo* &table_info,
   pSyntaxNode curr = whereNode->child_;
   vector<string> colNames;
   vector<string> colValues;
-  while (!isEqual(curr)) {
+  vector<uint8_t> colCompares;
+  uint8_t temp;
+  bool isAllEqual = true;
+  while (!(temp = isELH(curr))) {
     if (!isAnd(curr)) {
-      // not equal/and
+      // not equal/ELH
       return false;
     }
     pSyntaxNode rhs = curr->child_->next_;
-    if (isEqual(rhs)) {
+    if ((temp = isELH(rhs))) {
       colNames.push_back(rhs->child_->val_);
       colValues.push_back(rhs->child_->next_->val_);
+      colCompares.push_back(temp);
+      if(temp >> 1) // >= 2
+        isAllEqual = false;
     }else return false;
+    
     curr = curr->child_;
   }
-  // the last equal operater
+  // the last operater
   colNames.push_back(curr->child_->val_);
   colValues.push_back(curr->child_->next_->val_);
-  // get index
-  vector<pair<string, uint32_t>> val_key_map;
+  colCompares.push_back(temp);
+  if(temp >> 1) // >= 2
+    isAllEqual = false;
+
+  vector<map_cmp_val> conditions;
   for (uint32_t i = 0; i < colNames.size(); i++) {
     uint32_t colIndex;
     dberr_t ret = table_info->GetSchema()->GetColumnIndex(colNames[i], colIndex);
     if (ret != DB_SUCCESS) {
       return false;
     }
-    val_key_map.push_back(make_pair(colValues[i], colIndex));
+    conditions.push_back(map_cmp_val{colIndex, colCompares[i], colValues[i], nullptr, {}});
   }
   // sort according to key_map
-  sort(val_key_map.begin(), val_key_map.end(), 
-    [](const pair<string, uint32_t> &a, const pair<string, uint32_t> &b) {
-      return a.second < b.second;
+  sort(conditions.begin(), conditions.end(), 
+    [] (const map_cmp_val &a, const map_cmp_val &b) {
+      return a.map < b.map;
     }
   );
-  // extract key_map
-  vector<uint32_t> key_map;
-  for (uint32_t i = 0; i < val_key_map.size(); i++) {
-    key_map.push_back(val_key_map[i].second);
+  
+  if (isAllEqual) {
+    // try get index for whole key_map
+    // extract key_map
+    vector<uint32_t> key_map;
+    for (uint32_t i = 0; i < conditions.size(); i++) {
+      key_map.push_back(conditions[i].map);
+    }
+    vector<IndexInfo *> index_list;
+    cat->GetIndexesForKeyMap(table_info->GetTableName(), key_map, index_list);
+    if (index_list.size() != 0) {
+      // possible for whole key_map
+      auto index = index_list[0];
+      // get key
+      vector<Field> fields;
+      for (uint32_t i = 0; i < conditions.size(); i++) {
+        Field field(table_info->GetSchema()->GetColumn(conditions[i].map)->GetType());
+        field.FromString(conditions[i].val);
+        fields.push_back(field);
+      }
+      auto key = new Row(fields);
+      vector<RowId> scanRet;
+      index->GetIndex()->ScanKey(*key, scanRet, nullptr);
+      assert(scanRet.size() <= 1);
+      for (auto &rid : scanRet) {
+        result.push_back(table_info->GetRow(rid));
+      }
+      return 0b010;
+    }
   }
-  vector<IndexInfo *> index_list;
-  cat->GetIndexesForKeyMap(table_info->GetTableName(), key_map, index_list);
-  if (index_list.size() == 0) {
-    return false;
+  // return 0b000; // debug
+  // try get index for each key
+  int8_t ret_val = 0b010; // now assume no filter
+  for (auto &cond : conditions){
+    vector<IndexInfo *> index_list;
+    cat->GetIndexesForKeyMap(table_info->GetTableName(), {cond.map}, index_list);
+    if (index_list.size() == 0){
+      cond.index = nullptr;
+      ret_val = 0b001; // now need filter
+    } else cond.index = index_list[0];
   }
-  auto index = index_list[0];
-  // get key
-  vector<Field> fields;
-  for (uint32_t i = 0; i < val_key_map.size(); i++) {
-    Field field(table_info->GetSchema()->GetColumn(val_key_map[i].second)->GetType());
-    field.FromString(val_key_map[i].first);
+  vector<RowId> retRids;
+  bool first_flag = true;
+  for (auto &cond : conditions){
+    if (cond.index == nullptr)
+      continue;
+    // get key
+    vector<Field> fields;
+    Field field(table_info->GetSchema()->GetColumn(cond.map)->GetType());
+    field.FromString(cond.val);
     fields.push_back(field);
+    auto key = new Row(fields);
+    if (cond.cmp & 0b0001) {
+      // ==
+      cond.index->GetIndex()->ScanKey(*key, cond.rids, nullptr);
+      assert(cond.rids.size() <= 1);
+    }else{
+      assert(cond.cmp & 0b0010);
+      // assume 64 for all index
+      auto btIndex = reinterpret_cast<BPlusTreeIndex<GenericKey<64>,RowId,GenericComparator<64>> *>(
+                                      cond.index->GetIndex());
+      GenericKey<64> indexKey;
+      auto key_schema = Schema::ShallowCopySchema(table_info->GetSchema(), 
+                                     {cond.map}, table_info->GetMemHeap());
+      indexKey.SerializeFromKey(*key, key_schema);
+      if (cond.cmp & 0b0100) {
+        // > / >=
+        auto it = btIndex->GetBeginIterator(*key);
+        auto it_end = btIndex->GetEndIterator();
+        if ( !(cond.cmp & 0b1000) && it->first == indexKey ) {
+          // >
+          ++it;
+        }
+        while (it != it_end) {
+          cond.rids.push_back(it->second);
+          ++it;
+        }
+      }else{
+        // < / <=
+        auto it = btIndex->GetBeginIterator();
+        auto it_mid = btIndex->GetBeginIterator(*key);
+        while (it != it_mid) {
+          cond.rids.push_back(it->second);
+          ++it;
+        }
+        if (cond.cmp & 0b1000 && it->first == indexKey) {
+          // <=
+          cond.rids.push_back(it->second);
+          ++it;
+        }
+      }
+    }
+    // join
+    if (first_flag) {
+      retRids = cond.rids;
+      first_flag = false;
+    }else{
+      sort(cond.rids.begin(), cond.rids.end());
+      sort(retRids.begin(), retRids.end());
+      vector<RowId> joinRet;
+      set_intersection(cond.rids.begin(), cond.rids.end(),
+                      retRids.begin(),   retRids.end(), 
+                      back_inserter(joinRet));
+      retRids = joinRet;
+    }
   }
-  auto key = new Row(fields);
-  vector<RowId> scanRet;
-  index->GetIndex()->ScanKey(*key, scanRet, nullptr);
-  assert(scanRet.size() <= 1);
-  for (auto &rid : scanRet) {
+  for (auto &rid : retRids) {
     result.push_back(table_info->GetRow(rid));
   }
-  return true;
+  if (first_flag){
+    // no index found
+    ret_val = 0b000;
+  }
+  return ret_val;
 }
 
 dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
@@ -610,13 +743,24 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
   vector<vector<string>> select_result;
   uint32_t float_precision = 2;
 
+  // 2. where quick
   // accelerate query using index if possible
   vector<Row*> result_rows;  // output of canAccelerate
-  if (canAccelerate(whereNode, table_info, dbs_[current_db_]->catalog_mgr_, result_rows)){
-    // accelerate using index
-    select_count = result_rows.size();
-    // select
-    for (auto &row: result_rows){
+  uint8_t is_accelerated = canAccelerate(whereNode, table_info, dbs_[current_db_]->catalog_mgr_, 
+                                         result_rows);
+  if (!is_accelerated){
+    // traverse the table
+    TableIterator iter = table_info->GetTableHeap()->Begin(nullptr);
+    for (; !iter.isNull(); iter++) {
+      result_rows.push_back(iter.GetRow());
+    }
+  }
+  bool no_filter = is_accelerated & 0b010 || whereNode == nullptr;
+
+  // 2. where filter // todo: not sure about kTrue
+  for (auto &row : result_rows){
+    if (no_filter || GetResultOfNode(whereNode, *row, table_schema) == kTrue) {
+      // 3. select
       vector<string> result_line;
       std::vector<Field *> fields = row->GetFields();
       if (if_select_all){
@@ -629,31 +773,7 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
         }
       }
       select_result.push_back(result_line);
-    } 
-
-  }else{
-
-    // traverse the table
-    TableIterator iter = table_info->GetTableHeap()->Begin(nullptr);
-    for (; !iter.isNull(); iter++) {
-      Row row = *iter;
-      // 2. where // todo: not sure about kTrue
-      if (!whereNode || GetResultOfNode(whereNode, row, table_schema) == kTrue) {
-        // 3. select
-        vector<string> result_line;
-        std::vector<Field *> fields = row.GetFields();
-        if (if_select_all){
-          for (size_t i = 0; i < fields.size(); i++) {
-            result_line.push_back(fields[i]->ToString(float_precision));
-          }
-        }else{
-          for (auto &i : selectColumnIndexs){
-            result_line.push_back(fields[i]->ToString(float_precision));
-          }
-        }
-        select_result.push_back(result_line);
-        select_count++;
-      }
+      select_count++;
     }
   }
 

@@ -35,8 +35,6 @@ inline uint32_t DeserializeBitmap(char *buf, char *bitmap, uint32_t bitmap_len) 
 }
 
 
-// todo remove things about IsNull
-
 uint32_t Row::SerializeTo(char *buf, Schema *schema) const {
   uint32_t bitmap_len = fields_.size()/8 + 1;
   char* null_bitmap = new char[bitmap_len];
