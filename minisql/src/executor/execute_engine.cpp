@@ -69,12 +69,6 @@ dberr_t ExecuteEngine::Execute(pSyntaxNode ast, ExecuteContext *context) {
 }
 
 // ExecuteContext not used, output directly to stdout
-  /** // todo
-   * 执行完SQL语句后需要输出
-    * 执行所用的时间 在项目验收中将会用于考察索引效果
-    * 对插入/删除/更新语句 - 影响了多少条记录（参考MySQL输出）
-   **/
-// todo: count time spent in each function
 
 dberr_t ExecuteEngine::ExecuteCreateDatabase(pSyntaxNode ast, ExecuteContext *context) {
   string dbName = ast->child_->val_;
@@ -949,14 +943,27 @@ dberr_t ExecuteEngine::ExecuteDelete(pSyntaxNode ast, ExecuteContext *context) {
   TableSchema *table_schema = table_info->GetSchema();
 
   auto cat = dbs_[current_db_]->catalog_mgr_;
-  // traverse the table
-  TableIterator iter = table_info->GetTableHeap()->Begin(nullptr);
   int delete_count = 0;
-  for (; !iter.isNull(); iter++) { 
-    Row row = *iter;
-    // 2. where // todo: not sure about kTrue
-    if (!whereNode || GetResultOfNode(whereNode, row, table_schema) == kTrue) {
-      dberr_t ret = cat->Delete(table_info, row, nullptr);
+
+  // 2. where quick
+  // accelerate query using index if possible
+  vector<Row*> result_rows;  // output of canAccelerate
+  uint8_t is_accelerated = canAccelerate(whereNode, table_info, cat, 
+                                         result_rows);
+  if (!is_accelerated){
+    // traverse the table
+    TableIterator iter = table_info->GetTableHeap()->Begin(nullptr);
+    for (; !iter.isNull(); iter++) {
+      result_rows.push_back(iter.GetRow());
+    }
+  }
+  bool no_filter = is_accelerated & 0b010 || whereNode == nullptr;
+
+  // 2. where filter // todo: not sure about kTrue
+  for (auto &row : result_rows){
+    if (no_filter || GetResultOfNode(whereNode, *row, table_schema) == kTrue) {
+      // 3. delete
+      dberr_t ret = cat->Delete(table_info, *row, nullptr);
       if (ret == DB_FAILED){
         cout << "Error: Delete failed." << endl;
         return DB_FAILED;
@@ -994,15 +1001,26 @@ dberr_t ExecuteEngine::ExecuteUpdate(pSyntaxNode ast, ExecuteContext *context) {
   vector<Column *> columns = table_schema->GetColumns();
 
   auto cat = dbs_[current_db_]->catalog_mgr_;
-  // traverse the table
-  TableIterator iter = table_info->GetTableHeap()->Begin(nullptr);
   int update_count = 0;
 
-  for (; !iter.isNull(); iter++) {
-    Row old_row = *iter;    //old row
-    // 满足where条件
-    if (!whereNode || GetResultOfNode(whereNode, old_row, table_schema) == kTrue) {
-      std::vector<Field *> &fields = old_row.GetFields();   //old fields
+  // 2. where quick
+  // accelerate query using index if possible
+  vector<Row*> result_rows;  // output of canAccelerate
+  uint8_t is_accelerated = canAccelerate(whereNode, table_info, cat, 
+                                         result_rows);
+  if (!is_accelerated){
+    // traverse the table
+    TableIterator iter = table_info->GetTableHeap()->Begin(nullptr);
+    for (; !iter.isNull(); iter++) {
+      result_rows.push_back(iter.GetRow());
+    }
+  }
+  bool no_filter = is_accelerated & 0b010 || whereNode == nullptr;
+
+  // 2. where filter // todo: not sure about kTrue
+  for (auto &old_row : result_rows){
+    if (no_filter || GetResultOfNode(whereNode, *old_row, table_schema) == kTrue) {
+      std::vector<Field *> &fields = old_row->GetFields();   //old fields
       //create a new row
       vector<Field> temp_fields;    //new fields
       for (uint32_t i = 0; i < table_schema->GetColumnCount(); i++) {
@@ -1066,7 +1084,7 @@ dberr_t ExecuteEngine::ExecuteUpdate(pSyntaxNode ast, ExecuteContext *context) {
         }
       }
       Row new_row(temp_fields);
-      ret = cat->Update(table_info, old_row, new_row, nullptr);
+      ret = cat->Update(table_info, *old_row, new_row, nullptr);
       if (ret == DB_PK_DUPLICATE){
         cout << "Error: Primary key duplicate." << endl;
         return DB_FAILED;
