@@ -57,9 +57,13 @@ public:
   size_t Size() override;
 
 private:
-  list<frame_id_t> clock_list;
-  unordered_map<frame_id_t,list<frame_id_t>::iterator> clock_map;
-  unordered_map<frame_id_t,bool> ues_bit;
-  list<frame_id_t>::iterator iter;
+  // list<frame_id_t> clock_list;
+  // unordered_map<frame_id_t,list<frame_id_t>::iterator> clock_map;
+  // unordered_map<frame_id_t,bool> use_bit;
+  // list<frame_id_t>::iterator iter;
+  
+  list<pair<frame_id_t, bool>> clock_list;
+  list<pair<frame_id_t, bool>>::iterator clock_hand;
+  unordered_map<frame_id_t, list<pair<frame_id_t, bool>>::iterator> clock_map;
 };
 #endif  // MINISQL_LRU_REPLACER_H

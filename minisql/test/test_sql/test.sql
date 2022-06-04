@@ -79,7 +79,7 @@ create index idx01 on account(balance);
 -- 7. 考察索引的创建删除操作、记录的删除操作以及索引的效果：
 select * from account where name = "name56789";
 -- 此处记录执行时间 t1
-create index idx01 on account(name);
+create index idx02 on account(name);
 
 -- new:
 insert into account values(123123, "name56789", 555.55);
