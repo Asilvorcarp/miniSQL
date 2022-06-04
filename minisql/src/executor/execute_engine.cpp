@@ -1158,9 +1158,13 @@ dberr_t ExecuteEngine::ExecuteExecfile(pSyntaxNode ast, ExecuteContext *context)
 #endif
   string fileName = ast->child_->val_;
   std::fstream cmdIn(fileName, std::ios::in); // get command from file
+  if(!cmdIn.is_open()){
+    cout<<"file open failed."<<endl;
+  }
   const int buf_size = 1024;
   char cmd[buf_size];
   // repeat until EOF
+  memset(cmd, 0, buf_size);
   while (cmdIn.getline(cmd, buf_size)) {
     // todo: support multi-line command
     // skip empty line
@@ -1189,6 +1193,7 @@ dberr_t ExecuteEngine::ExecuteExecfile(pSyntaxNode ast, ExecuteContext *context)
       // error
       printf("%s\n", MinisqlParserGetErrorMessage());
     }
+
     this->Execute(MinisqlGetParserRootNode(), context);
     // sleep(1); // probably not needed
     // clean memory after parse
@@ -1201,6 +1206,7 @@ dberr_t ExecuteEngine::ExecuteExecfile(pSyntaxNode ast, ExecuteContext *context)
     if (context->flag_quit_) {
       break;
     }
+    memset(cmd, 0, buf_size);
   }
   cmdIn.close();
   return DB_SUCCESS;
