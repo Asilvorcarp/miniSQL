@@ -22,14 +22,16 @@ ExecuteEngine::ExecuteEngine() {
   ifs.open("databases.txt",ios::in);
   if(!ifs.is_open()){
     cout<<"open databases.txt failed."<<endl;
-  }
-  int size = 0;
-  ifs>>size;
-  for(int i = 0;i<size;i++){
-    string database_name;
-    ifs>>database_name;
-    auto temp = new DBStorageEngine(database_name,false);
-    this->dbs_[database_name] = temp;
+  }else{
+    int size = 0;
+    ifs>>size;
+    for(int i = 0;i<size;i++){
+      string database_name;
+      ifs>>database_name;
+      auto temp = new DBStorageEngine(database_name,false);
+      this->dbs_[database_name] = temp;
+    }
+    cout<<"Loaded databases."<<endl;
   }
 }
 

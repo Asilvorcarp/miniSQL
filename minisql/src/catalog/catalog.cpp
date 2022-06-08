@@ -281,6 +281,14 @@ dberr_t CatalogManager::DropTable(const string &table_name) {
   if(this->table_names_.count(table_name)==0){
     return DB_TABLE_NOT_EXIST;
   }
+  // drop all indexes of the table
+  unordered_map<std::string, index_id_t> tmp=this->index_names_.at(table_name);
+  auto iter=tmp.begin();
+  while(iter!=tmp.end()){
+    this->DropIndex(table_name, iter->first);
+    iter++;
+  }
+  this->index_names_.erase(table_name);
   //get the page store the table
   //attention:the table may be stored in more than one page, which causes the more 
   buffer_pool_manager_->DeletePage(this->catalog_meta_->table_meta_pages_.at(this->table_names_.at(table_name)));
