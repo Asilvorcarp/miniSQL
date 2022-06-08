@@ -143,9 +143,10 @@ dberr_t CatalogManager::GetTables(vector<TableInfo *> &tables) const {
 
 // new: a column has no duplicated value
 bool CatalogManager::isNotDuplicated(vector<uint32_t> &key_map, vector<Column *> &cols, TableInfo* &table_info){
-  auto key_schema=Schema::ShallowCopySchema(table_info->GetSchema(), key_map, this->heap_);
+  auto key_schema = nullptr; // not used anyway 
+  // auto key_schema=Schema::ShallowCopySchema(table_info->GetSchema(), key_map, this->heap_);
   TableIterator iter = table_info->GetTableHeap()->Begin(nullptr);
-  unordered_set<GenericKey<64>, GenericKey<64>::HashFunction> keys;
+  unordered_set<GenericKey<64>, GenericKey<64>::HashFunction> keys; // fine
   for (; !iter.isNull(); iter++) {
     Row row = *iter;
     Row keyRow(row, key_map);
@@ -419,9 +420,10 @@ dberr_t CatalogManager::Update(TableInfo* &tf, Row &old_row, Row &row, Transacti
   auto uni_pk_maps = tf->GetUniPKMaps();
   for (auto &key_map : uni_pk_maps){
     // if not changed, skip
-    auto key_schema = Schema::ShallowCopySchema(tf->GetSchema(), key_map, this->heap_);
+    auto key_schema = nullptr; // not used anyway 
+    // auto key_schema = Schema::ShallowCopySchema(tf->GetSchema(), key_map, this->heap_);
     Row old_key(old_row, key_map), key(row, key_map);
-    GenericKey<64> old_index_key, index_key;
+    GenericKey<64> old_index_key, index_key; // fine
     old_index_key.SerializeFromKey(old_key, key_schema);
     index_key.SerializeFromKey(key, key_schema);
     if (index_key == old_index_key){

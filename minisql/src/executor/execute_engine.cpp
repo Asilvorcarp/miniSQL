@@ -645,46 +645,8 @@ uint8_t ExecuteEngine::canAccelerate(pSyntaxNode whereNode, TableInfo* &table_in
     field.FromString(cond.val);
     fields.push_back(field);
     auto key = new Row(fields);
-    if (cond.cmp & 0b0001) {
-      // ==
-      cond.index->GetIndex()->ScanKey(*key, cond.rids, nullptr);
-      assert(cond.rids.size() <= 1);
-    }else{
-      assert(cond.cmp & 0b0010);
-      // assume 64 for all index
-      auto btIndex = reinterpret_cast<BPlusTreeIndex<GenericKey<64>,RowId,GenericComparator<64>> *>(
-                                      cond.index->GetIndex());
-      GenericKey<64> indexKey;
-      auto key_schema = Schema::ShallowCopySchema(table_info->GetSchema(), 
-                                     {cond.map}, table_info->GetMemHeap());
-      indexKey.SerializeFromKey(*key, key_schema);
-      if (cond.cmp & 0b0100) {
-        // > / >=
-        auto it = btIndex->GetBeginIterator(*key);
-        auto it_end = btIndex->GetEndIterator();
-        if ( !(cond.cmp & 0b1000) && it->first == indexKey ) {
-          // >
-          ++it;
-        }
-        while (it != it_end) {
-          cond.rids.push_back(it->second);
-          ++it;
-        }
-      }else{
-        // < / <=
-        auto it = btIndex->GetBeginIterator();
-        auto it_mid = btIndex->GetBeginIterator(*key);
-        while (it != it_mid) {
-          cond.rids.push_back(it->second);
-          ++it;
-        }
-        if (cond.cmp & 0b1000 && it->first == indexKey) {
-          // <=
-          cond.rids.push_back(it->second);
-          ++it;
-        }
-      }
-    }
+    // get rids
+    cond.index->GetIndex()->ScanKey(*key, cond.cmp, cond.rids, nullptr);
     // join
     if (first_flag) {
       retRids = cond.rids;

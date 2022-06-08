@@ -20,6 +20,8 @@ public:
 
   virtual dberr_t ScanKey(const Row &key, std::vector<RowId> &result, Transaction *txn) = 0;
 
+  virtual dberr_t ScanKey(const Row &key, const int8_t compareType, std::vector<RowId> &result, Transaction *txn) = 0;
+
   virtual dberr_t Destroy() = 0;
 
 protected:

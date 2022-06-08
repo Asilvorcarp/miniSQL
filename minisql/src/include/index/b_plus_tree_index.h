@@ -16,6 +16,9 @@ public:
   dberr_t RemoveEntry(const Row &key, RowId row_id, Transaction *txn) override;
 
   dberr_t ScanKey(const Row &key, std::vector<RowId> &result, Transaction *txn) override;
+  
+  // new: scan range key with compare type
+  dberr_t ScanKey(const Row &key, const int8_t compareType, std::vector<RowId> &result, Transaction *txn) override;
 
   dberr_t Destroy() override;
 

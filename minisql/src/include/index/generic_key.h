@@ -16,7 +16,7 @@ public:
     #else
       uint32_t size = key.GetSerializedSize(schema);
     #endif
-    ASSERT(key.GetFieldCount() == schema->GetColumnCount(), "field nums not match.");
+    // ASSERT(key.GetFieldCount() == schema->GetColumnCount(), "field nums not match.");
     ASSERT(size <= KeySize, "Index key size exceed max key size.");
     memset(data, 0, KeySize);
     key.SerializeTo(data, schema);
