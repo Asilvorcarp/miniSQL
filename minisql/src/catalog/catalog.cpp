@@ -357,13 +357,16 @@ dberr_t CatalogManager::LoadIndex(const index_id_t index_id, const page_id_t pag
   IndexMetadata::DeserializeFrom(pge->GetData(),im,this->heap_);
   IndexInfo *ii=IndexInfo::Create(this->heap_);
   ii->Init(im,this->tables_.at(im->GetTableId()),this->buffer_pool_manager_);
-  unordered_map<std::string, index_id_t> tmp;
-  if(index_names_.count(this->tables_.at(ii->GetTableInfo()->GetTableId())->GetTableName())){
-    this->index_names_.at(this->tables_.at(ii->GetTableInfo()->GetTableId())->GetTableName());
+  unordered_map<std::string, index_id_t>* tmp;
+  try{
+    tmp = &this->index_names_.at(this->tables_.at(ii->GetTableInfo()->GetTableId())->GetTableName());
+    (*tmp)[ii->GetIndexName()] = index_id;
+  }catch(std::out_of_range &e){
+    tmp = new unordered_map<std::string, index_id_t>();
+    (*tmp)[ii->GetIndexName()] = index_id;
+    this->index_names_[this->tables_.at(ii->GetTableInfo()->GetTableId())->GetTableName()] = *tmp;
   }
-  tmp[ii->GetIndexName()]=index_id;
-  this->index_names_[this->tables_.at(ii->GetTableInfo()->GetTableId())->GetTableName()]=tmp;
-  this->indexes_[index_id]=ii;
+  this->indexes_[index_id] = ii;
   buffer_pool_manager_->UnpinPage(page_id,false);
   return DB_SUCCESS;
 }
