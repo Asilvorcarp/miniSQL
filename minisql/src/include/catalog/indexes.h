@@ -94,19 +94,14 @@ private:
                          key_schema_{nullptr}, heap_(new SimpleMemHeap()) {}
 
   Index *CreateIndex(BufferPoolManager *buffer_pool_manager) {
-    // //ASSERT(false, "Not Implemented yet.");
-    vector<Column *> tmp=this->key_schema_->GetColumns();
-    uint32_t maxLength=0;
-    for(uint32_t i=0;i<tmp.size();i++){
-      maxLength=max(maxLength,tmp[i]->GetSerializedSize());
-    }
-    uint32_t tempSize=4;
-    while(maxLength>tempSize){
-      tempSize<<=1;
-    }
     // return new BPlusTreeIndex<GenericKey<64>,RowId,GenericComparator<64>>(this->meta_data_->GetIndexId(),this->key_schema_,buffer_pool_manager);
+    uint32_t maxKeySize = Row::GetMaxKeySize(this->key_schema_);
+    uint32_t indexKeySize = 4;
+    while(maxKeySize > indexKeySize){
+      indexKeySize<<=1;
+    }
     void *buf;
-    switch(tempSize){
+    switch(indexKeySize){
       case 4:
       //BPlusTreeIndex<GenericKey<4>,RowId,GenericComparator<4>> *tmp;
       buf=this->heap_->Allocate(sizeof(BPlusTreeIndex<GenericKey<4>,RowId,GenericComparator<4>>));
@@ -128,7 +123,7 @@ private:
       buf=this->heap_->Allocate(sizeof(BPlusTreeIndex<GenericKey<64>,RowId,GenericComparator<64>>));
       return new(buf)BPlusTreeIndex<GenericKey<64>,RowId,GenericComparator<64>>(this->meta_data_->GetIndexId(),this->key_schema_,buffer_pool_manager);
     }
-    LOG(FATAL) << "key length not enough, max 64, but needs" << tempSize << endl;
+    LOG(FATAL) << "key length not enough, max 64, but needs" << indexKeySize << endl;
     return nullptr;
   }
 

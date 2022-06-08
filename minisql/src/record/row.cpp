@@ -113,3 +113,19 @@ uint32_t Row::GetSerializedSize(Schema *schema) const {
   
   return ofs;
 }
+
+uint32_t Row::GetMaxKeySize(Schema *key_schema) {
+  uint32_t ofs = 0;
+  ofs += 4;                                          // 1 - field_num
+  
+  uint32_t colNum = key_schema->GetColumnCount();
+  uint32_t bitmap_len = colNum/8 + 1;
+  ofs += bitmap_len;                                 // 2 - null_bitmap
+
+  for(uint32_t i = 0; i < colNum; i++){
+    ofs += key_schema->GetColumn(i)->GetLength();    // 3 - fields
+  }
+
+  return ofs;
+}
+
