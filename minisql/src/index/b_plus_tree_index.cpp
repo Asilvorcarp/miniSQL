@@ -44,6 +44,47 @@ dberr_t BPLUSTREE_INDEX_TYPE::ScanKey(const Row &key, vector<RowId> &result, Tra
 }
 
 INDEX_TEMPLATE_ARGUMENTS
+dberr_t BPLUSTREE_INDEX_TYPE::ScanKey(const Row &key, const int8_t compareType, vector<RowId> &result, Transaction *txn) {
+  result.clear();
+  if (compareType & 0b0001) {
+    // ==
+    this->ScanKey(key, result, nullptr);
+    assert(result.size() <= 1);
+  }else{
+    assert(compareType & 0b0010);
+    KeyType indexKey;
+    indexKey.SerializeFromKey(key, key_schema_);
+    if (compareType & 0b0100) {
+      // > / >=
+      auto it = this->GetBeginIterator(key);
+      auto it_end = this->GetEndIterator();
+      if ( !(compareType & 0b1000) && it->first == indexKey ) {
+        // >
+        ++it;
+      }
+      while (it != it_end) {
+        result.push_back(it->second);
+        ++it;
+      }
+    }else{
+      // < / <=
+      auto it = this->GetBeginIterator();
+      auto it_mid = this->GetBeginIterator(key);
+      while (it != it_mid) {
+        result.push_back(it->second);
+        ++it;
+      }
+      if (compareType & 0b1000 && it->first == indexKey) {
+        // <=
+        result.push_back(it->second);
+        ++it;
+      }
+    }
+  }
+  return DB_SUCCESS;
+}
+
+INDEX_TEMPLATE_ARGUMENTS
 dberr_t BPLUSTREE_INDEX_TYPE::Destroy() {
   container_.Destroy();
   return DB_SUCCESS;

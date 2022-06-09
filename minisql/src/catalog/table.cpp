@@ -14,16 +14,21 @@ uint32_t TableMetadata::SerializeTo(char *buf) const {
   ofs+=4;
   ofs+=schema_->SerializeTo(buf+ofs);
 
-  // todo: probably need to support primaryKeyIndexs 
+  // vector<uint32_t> primaryKeyIndexs_;
+  MACH_WRITE_UINT32(buf+ofs,primaryKeyIndexs_.size());
+  ofs+=4;
+  for (uint32_t i=0; i<primaryKeyIndexs_.size(); i++) {
+    MACH_WRITE_UINT32(buf+ofs,primaryKeyIndexs_[i]);
+    ofs+=4;
+  }
   
   return ofs;
 }
 
 uint32_t TableMetadata::GetSerializedSize() const {
 
-  // todo: probably need to support primaryKeyIndexs 
-
-  return sizeof(uint32_t)*4+table_name_.size()+schema_->GetSerializedSize();
+  return sizeof(uint32_t)*4 + table_name_.size() + schema_->GetSerializedSize() + \
+         sizeof(size_t) + sizeof(uint32_t)*primaryKeyIndexs_.size();
 }
 
 /**
@@ -59,8 +64,19 @@ uint32_t TableMetadata::DeserializeFrom(char *buf, TableMetadata *&table_meta, M
   //void *mem=heap->Allocate(sizeof(TableMetadata));
   // ALLOC_P(heap,TableMetadata)(tableID,tableName,rootPageID,shc);
   // table_meta=new TableMetadata(tableID,tableName,rootPageID,shc);
+
+  // vector<uint32_t> primaryKeyIndexs_;
+  uint32_t pkSize=MACH_READ_FROM(uint32_t,buf+ofs);
+  ofs+=4;
+  vector<uint32_t> pkIndexes;
+  for (uint32_t i=0; i<pkSize; i++) {
+    uint32_t indexID=MACH_READ_FROM(uint32_t,buf+ofs);
+    ofs+=4;
+    pkIndexes.push_back(indexID);
+  }
+
   void *mem=heap->Allocate(sizeof(TableMetadata));
-  table_meta=new(mem)TableMetadata(tableID,tableName,rootPageID,shc);
+  table_meta=new(mem)TableMetadata(tableID,tableName,rootPageID,shc,pkIndexes);
   return ofs;
 }
 
@@ -69,7 +85,7 @@ uint32_t TableMetadata::DeserializeFrom(char *buf, TableMetadata *&table_meta, M
  *
  * @param heap Memory heap passed by TableInfo
  */
-  // new: added primaryKeyIndexs (default: empty)
+// new: added primaryKeyIndexs (default: empty)
 TableMetadata *TableMetadata::Create(table_id_t table_id, std::string table_name,
                                      page_id_t root_page_id, TableSchema *schema, MemHeap *heap,
                                      vector<uint32_t> primaryKeyIndexs) {

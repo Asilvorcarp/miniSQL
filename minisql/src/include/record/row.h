@@ -95,6 +95,9 @@ public:
    */
   uint32_t GetSerializedSize(Schema *schema) const;
 
+  // new: get key size for a key_schema
+  static uint32_t GetMaxKeySize(Schema *key_schema);
+
   inline const RowId GetRowId() const { return rid_; }
 
   inline void SetRowId(RowId rid) { rid_ = rid; }

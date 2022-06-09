@@ -143,9 +143,10 @@ dberr_t CatalogManager::GetTables(vector<TableInfo *> &tables) const {
 
 // new: a column has no duplicated value
 bool CatalogManager::isNotDuplicated(vector<uint32_t> &key_map, vector<Column *> &cols, TableInfo* &table_info){
-  auto key_schema=Schema::ShallowCopySchema(table_info->GetSchema(), key_map, this->heap_);
+  auto key_schema = nullptr; // not used anyway 
+  // auto key_schema=Schema::ShallowCopySchema(table_info->GetSchema(), key_map, this->heap_);
   TableIterator iter = table_info->GetTableHeap()->Begin(nullptr);
-  unordered_set<GenericKey<64>, GenericKey<64>::HashFunction> keys;
+  unordered_set<GenericKey<64>, GenericKey<64>::HashFunction> keys; // fine
   for (; !iter.isNull(); iter++) {
     Row row = *iter;
     Row keyRow(row, key_map);
@@ -281,6 +282,14 @@ dberr_t CatalogManager::DropTable(const string &table_name) {
   if(this->table_names_.count(table_name)==0){
     return DB_TABLE_NOT_EXIST;
   }
+  // drop all indexes of the table
+  unordered_map<std::string, index_id_t> tmp=this->index_names_.at(table_name);
+  auto iter=tmp.begin();
+  while(iter!=tmp.end()){
+    this->DropIndex(table_name, iter->first);
+    iter++;
+  }
+  this->index_names_.erase(table_name);
   //get the page store the table
   //attention:the table may be stored in more than one page, which causes the more 
   buffer_pool_manager_->DeletePage(this->catalog_meta_->table_meta_pages_.at(this->table_names_.at(table_name)));
@@ -348,13 +357,16 @@ dberr_t CatalogManager::LoadIndex(const index_id_t index_id, const page_id_t pag
   IndexMetadata::DeserializeFrom(pge->GetData(),im,this->heap_);
   IndexInfo *ii=IndexInfo::Create(this->heap_);
   ii->Init(im,this->tables_.at(im->GetTableId()),this->buffer_pool_manager_);
-  unordered_map<std::string, index_id_t> tmp;
-  if(index_names_.count(this->tables_.at(ii->GetTableInfo()->GetTableId())->GetTableName())){
-    this->index_names_.at(this->tables_.at(ii->GetTableInfo()->GetTableId())->GetTableName());
+  unordered_map<std::string, index_id_t>* tmp;
+  try{
+    tmp = &this->index_names_.at(this->tables_.at(ii->GetTableInfo()->GetTableId())->GetTableName());
+    (*tmp)[ii->GetIndexName()] = index_id;
+  }catch(std::out_of_range &e){
+    tmp = new unordered_map<std::string, index_id_t>();
+    (*tmp)[ii->GetIndexName()] = index_id;
+    this->index_names_[this->tables_.at(ii->GetTableInfo()->GetTableId())->GetTableName()] = *tmp;
   }
-  tmp[ii->GetIndexName()]=index_id;
-  this->index_names_[this->tables_.at(ii->GetTableInfo()->GetTableId())->GetTableName()]=tmp;
-  this->indexes_[index_id]=ii;
+  this->indexes_[index_id] = ii;
   buffer_pool_manager_->UnpinPage(page_id,false);
   return DB_SUCCESS;
 }
@@ -411,9 +423,10 @@ dberr_t CatalogManager::Update(TableInfo* &tf, Row &old_row, Row &row, Transacti
   auto uni_pk_maps = tf->GetUniPKMaps();
   for (auto &key_map : uni_pk_maps){
     // if not changed, skip
-    auto key_schema = Schema::ShallowCopySchema(tf->GetSchema(), key_map, this->heap_);
+    auto key_schema = nullptr; // not used anyway 
+    // auto key_schema = Schema::ShallowCopySchema(tf->GetSchema(), key_map, this->heap_);
     Row old_key(old_row, key_map), key(row, key_map);
-    GenericKey<64> old_index_key, index_key;
+    GenericKey<64> old_index_key, index_key; // fine
     old_index_key.SerializeFromKey(old_key, key_schema);
     index_key.SerializeFromKey(key, key_schema);
     if (index_key == old_index_key){
