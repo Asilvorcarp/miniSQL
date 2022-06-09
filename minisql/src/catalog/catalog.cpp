@@ -141,28 +141,28 @@ dberr_t CatalogManager::GetTables(vector<TableInfo *> &tables) const {
   return DB_SUCCESS;
 }
 
-// new: a column has no duplicated value
-bool CatalogManager::isNotDuplicated(vector<uint32_t> &key_map, vector<Column *> &cols, TableInfo* &table_info){
-  // currently, always regard as isNotDuplicated to save time
-  return true;  // todo: actually we dont need isNotDuplicated()
+// // new: a column has no duplicated value
+// bool CatalogManager::isNotDuplicated(vector<uint32_t> &key_map, vector<Column *> &cols, TableInfo* &table_info){
+//   // currently, always regard as isNotDuplicated to save time
+//   return true;  // actually we dont need isNotDuplicated()
 
-  auto key_schema = nullptr; // not used anyway 
-  // auto key_schema=Schema::ShallowCopySchema(table_info->GetSchema(), key_map, this->heap_);
-  TableIterator iter = table_info->GetTableHeap()->Begin(nullptr);
-  unordered_set<GenericKey<64>, GenericKey<64>::HashFunction> keys; // fine
-  for (; !iter.isNull(); iter++) {
-    Row row = *iter;
-    Row keyRow(row, key_map);
-    GenericKey<64> key;
-    key.SerializeFromKey(keyRow, key_schema);
-    auto ret = keys.insert(key);
-    if (ret.second == false) {
-      // duplicated (not inserted)
-      return false;
-    }
-  }
-  return true;
-}
+//   auto key_schema = nullptr; // not used anyway 
+//   // auto key_schema=Schema::ShallowCopySchema(table_info->GetSchema(), key_map, this->heap_);
+//   TableIterator iter = table_info->GetTableHeap()->Begin(nullptr);
+//   unordered_set<GenericKey<64>, GenericKey<64>::HashFunction> keys; // fine
+//   for (; !iter.isNull(); iter++) {
+//     Row row = *iter;
+//     Row keyRow(row, key_map);
+//     GenericKey<64> key;
+//     key.SerializeFromKey(keyRow, key_schema);
+//     auto ret = keys.insert(key);
+//     if (ret.second == false) {
+//       // duplicated (not inserted)
+//       return false;
+//     }
+//   }
+//   return true;
+// }
 
 // new: mark a column as unique
 inline void markAsUnique(vector<uint32_t> &key_map, vector<Column *> &cols){
@@ -207,21 +207,29 @@ dberr_t CatalogManager::CreateIndex(const std::string &table_name, const string 
             break;
           }
         }
-        if(is_set_unique == false){
-          // old: return DB_COLUMN_NOT_UNIQUE;
-          // if actually unique, then allow creating index on it, and mark it as unique
-          if (isNotDuplicated(tmp, col, tf)) {
-            markAsUnique(tmp, col);
-          }else{
-            return DB_COLUMN_NOT_UNIQUE;
-          }
-        }
       }
       IndexMetadata *im=IndexMetadata::Create(this->catalog_meta_->GetNextIndexId(),index_name,this->table_names_.at(table_name),tmp,this->heap_); 
-      im->SerializeTo(pge->GetData());
-      buffer_pool_manager_->UnpinPage(pageID, true);
       index_info=IndexInfo::Create(this->heap_);
       index_info->Init(im,tf,this->buffer_pool_manager_);
+      // insert current rows of table into index
+      TableIterator iter = tf->GetTableHeap()->Begin(nullptr);
+      for (; !iter.isNull(); iter++) {
+        Row row = *iter;
+        Row keyRow(row, tmp);
+        auto ret = index_info->GetIndex()->InsertEntry(keyRow, row.GetRowId(), txn);
+        if (ret == DB_FAILED){
+          // duplicated, rollback
+          buffer_pool_manager_->UnpinPage(pageID, false);
+          buffer_pool_manager_->DeletePage(pageID);
+          return DB_COLUMN_NOT_UNIQUE;
+        }
+      }
+      // not duplicated, allow creating index on it, and mark it as unique
+      if(is_set_unique == false){
+        markAsUnique(tmp, col);
+      }
+      im->SerializeTo(pge->GetData());
+      buffer_pool_manager_->UnpinPage(pageID, true);
       unordered_map<std::string, index_id_t> tmpMap;
       if(this->index_names_.count(table_name)){
         tmpMap=this->index_names_.at(table_name);
@@ -230,13 +238,6 @@ dberr_t CatalogManager::CreateIndex(const std::string &table_name, const string 
       this->index_names_[table_name]=tmpMap;
       this->indexes_[nextIndexID]=index_info;
       this->catalog_meta_->index_meta_pages_[nextIndexID]=pge->GetPageId();
-      // insert current rows of table into index
-      TableIterator iter = tf->GetTableHeap()->Begin(nullptr);
-      for (; !iter.isNull(); iter++) {
-        Row row = *iter;
-        Row keyRow(row, tmp);
-        index_info->GetIndex()->InsertEntry(keyRow, row.GetRowId(), txn);
-      }
       return DB_SUCCESS;
     }
   }
@@ -311,6 +312,8 @@ dberr_t CatalogManager::DropIndex(const string &table_name, const string &index_
   //get the page store the index
   buffer_pool_manager_->DeletePage( this->catalog_meta_->index_meta_pages_.at(this->index_names_.at(table_name).at(index_name)) );
   this->catalog_meta_->index_meta_pages_.erase(this->index_names_.at(table_name).at(index_name));
+  // delete the index (Destroy)
+  this->indexes_.at(this->index_names_.at(table_name).at(index_name))->GetIndex()->Destroy();
   this->indexes_.erase(this->index_names_.at(table_name).at(index_name));
   this->index_names_.at(table_name).erase(index_name);
   return DB_SUCCESS;
@@ -480,6 +483,7 @@ dberr_t CatalogManager::Delete(TableInfo* &tf, Row &row, Transaction *txn) {
     // error: Delete failed.
     return DB_FAILED;
   }
+  tf->GetTableHeap()->ApplyDelete(row_id, nullptr);
   // 2. maintain indexes
   vector<IndexInfo *> indexes;
   GetTableIndexes(tf->GetTableName(), indexes);
