@@ -143,6 +143,9 @@ dberr_t CatalogManager::GetTables(vector<TableInfo *> &tables) const {
 
 // new: a column has no duplicated value
 bool CatalogManager::isNotDuplicated(vector<uint32_t> &key_map, vector<Column *> &cols, TableInfo* &table_info){
+  // currently, always regard as isNotDuplicated to save time
+  return true;  // todo: actually we dont need isNotDuplicated()
+
   auto key_schema = nullptr; // not used anyway 
   // auto key_schema=Schema::ShallowCopySchema(table_info->GetSchema(), key_map, this->heap_);
   TableIterator iter = table_info->GetTableHeap()->Begin(nullptr);
