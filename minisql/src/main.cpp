@@ -12,7 +12,7 @@ FILE *yyin;
 #include "parser/parser.h"
 }
 
-#define ENABLE_PARSER_DEBUG // debug
+// #define ENABLE_PARSER_DEBUG // debug
 // #define ENABLE_FILE_INPUT // debug, read cmds from file, only support one line 
 // #define ENABLE_FILE_OUTPUT // debug, output to "output.txt"
 
