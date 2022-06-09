@@ -10,6 +10,17 @@ https://www.yuque.com/yingchengjun/pcp6qx/fggii4
 
 
 
+## 验收
+
+对文件输出，便于观察一点
+
+1. Run 所有的测试
+2. Run 给的测试文件
+3. 演示各类索引加速
+4. 演示Bonus
+   1. clock
+   2. hash 写！
+
 # YJ-个人详细设计报告
 
 - [ ] 对着commit记录写

@@ -483,7 +483,7 @@ dberr_t CatalogManager::Delete(TableInfo* &tf, Row &row, Transaction *txn) {
     // error: Delete failed.
     return DB_FAILED;
   }
-  // tf->GetTableHeap()->ApplyDelete(row_id, nullptr);
+  tf->GetTableHeap()->ApplyDelete(row_id, nullptr);
   // 2. maintain indexes
   vector<IndexInfo *> indexes;
   GetTableIndexes(tf->GetTableName(), indexes);
