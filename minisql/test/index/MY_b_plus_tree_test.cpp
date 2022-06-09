@@ -44,7 +44,7 @@ TEST(BPlusTreeTests, MySampleTest) {
   }
   // Insert data
   for (int i = 0; i < n; i++) {
-    LOG(INFO)<<"Insert "<<keys[i]<<" "<<values[i];
+    // LOG(INFO)<<"Insert "<<keys[i]<<" "<<values[i];
     tree.Insert(keys[i], values[i]);
     tree.PrintTree(mgr[i+1000]);
   }
@@ -55,14 +55,14 @@ TEST(BPlusTreeTests, MySampleTest) {
   vector<int> ans;
   for (int i = 0; i < n; i++) {
     tree.GetValue(keys[i], ans);
-    LOG(INFO)<< "size after "<<i<<" is "<<ans.size();
-    LOG(INFO) << "key: " << keys[i] << ", kv_map[i]: " << kv_map[keys[i]] << ", ans[i]: " << ans[i] << endl;
+    // LOG(INFO)<< "size after "<<i<<" is "<<ans.size();
+    // LOG(INFO) << "key: " << keys[i] << ", kv_map[i]: " << kv_map[keys[i]] << ", ans[i]: " << ans[i] << endl;
     ASSERT_EQ(kv_map[keys[i]], ans[i]);
   }
   ASSERT_TRUE(tree.Check());
   // Delete half keys
   for (int i = 0; i < n / 2; i++) {
-    LOG(INFO)<<"Remove key "<<delete_seq[i]<<" "<<values[i];
+    // LOG(INFO)<<"Remove key "<<delete_seq[i]<<" "<<values[i];
     tree.Remove(delete_seq[i]);
     tree.PrintTree(mgr[i+2000]);
   }
@@ -70,7 +70,7 @@ TEST(BPlusTreeTests, MySampleTest) {
   // Check valid
   ans.clear();
   for (int i = 0; i < n / 2; i++) {
-    LOG(INFO) << "delete_seq[i]: " << delete_seq[i];
+    // LOG(INFO) << "delete_seq[i]: " << delete_seq[i];
     ASSERT_FALSE(tree.GetValue(delete_seq[i], ans));
   }
   for (int i = n / 2; i < n; i++) {

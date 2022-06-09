@@ -42,9 +42,10 @@ uint32_t Schema::DeserializeFrom(char *buf, Schema *&schema, MemHeap *heap) {
   std::vector<Column *> columns_;
   uint32_t temp_Magic_Number = MACH_READ_FROM(uint32_t, buf+ofs);  //1-Read the MagicNum
   ofs += 4;
-  if(temp_Magic_Number!=200715)
+  if(temp_Magic_Number!=SCHEMA_MAGIC_NUM)
   {
-    std::cerr<<"COLUMN_MAGIC_NUM does not match"<<std::endl;
+    // std::cerr<<"COLUMN_MAGIC_NUM does not match"<<std::endl;
+    // todo temporarily
     return 0;
   }
   
