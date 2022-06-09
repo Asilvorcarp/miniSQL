@@ -123,7 +123,8 @@ private:
       buf=this->heap_->Allocate(sizeof(BPlusTreeIndex<GenericKey<64>,RowId,GenericComparator<64>>));
       return new(buf)BPlusTreeIndex<GenericKey<64>,RowId,GenericComparator<64>>(this->meta_data_->GetIndexId(),this->key_schema_,buffer_pool_manager);
     }
-    LOG(FATAL) << "key length not enough, max 64, but needs" << indexKeySize << endl;
+    return new BPlusTreeIndex<GenericKey<64>,RowId,GenericComparator<64>>(this->meta_data_->GetIndexId(),this->key_schema_,buffer_pool_manager);
+    // LOG(FATAL) << "key length not enough, max 64, but needs" << indexKeySize << endl;
     return nullptr;
   }
 
