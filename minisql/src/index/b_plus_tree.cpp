@@ -421,7 +421,7 @@ bool BPLUSTREE_TYPE::AdjustRoot(BPlusTreePage *old_root_node) {
 
   assert(old_root_node->GetSize() == 1);
   InternalPage *old_root = static_cast<InternalPage *>(old_root_node);
-  root_page_id_ = old_root->ValueAt(0);
+  root_page_id_ = old_root->RemoveAndReturnOnlyChild();
   UpdateRootPageId();
   Page *new_root_page = GetPageWithPid(root_page_id_);
   BPlusTreePage *new_root = reinterpret_cast<BPlusTreePage *>(new_root_page->GetData()); 
