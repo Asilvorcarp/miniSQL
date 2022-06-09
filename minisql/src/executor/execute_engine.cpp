@@ -114,6 +114,7 @@ dberr_t ExecuteEngine::ExecuteDropDatabase(pSyntaxNode ast, ExecuteContext *cont
     return DB_FAILED;
   }
   delete dbs_[dbName];
+  dbs_.erase(dbName);
   long time_end = clock();
   cout << "Database " << dbName << " dropped." << "  (" << (double)(time_end - time_start)/CLOCKS_PER_SEC  << " sec)" << endl;
   return DB_SUCCESS;
@@ -1165,24 +1166,70 @@ dberr_t ExecuteEngine::ExecuteExecfile(pSyntaxNode ast, ExecuteContext *context)
   char cmd[buf_size];
   // repeat until EOF
   memset(cmd, 0, buf_size);
-  while (cmdIn.getline(cmd, buf_size)) {
+  while (1) {
+    // cmdIn.getline(cmd, buf_size);
+
     // todo: support multi-line command
     // skip empty line
-    if (cmd[0] == '\0') {
+
+
+    // memset(cmd, 0, buf_size);
+    // int i = 0;
+    // char ch;
+    // cmdIn>>ch;
+    // if (ch == EOF)
+    // {
+    //   break;
+    // }
+    // while (ch!= ';') {
+    // cmd[i++] = ch;
+    // cmdIn>>ch;
+    // }
+    // cmd[i] = ch;    // ;
+    // cmdIn>>ch;
+    // cout<<cmd;
+
+
+
+    // if (cmd[0] == '\0') {
+    //   continue;
+    // }
+    // // support comments start with "--"
+    // if (cmd[0] == '-') {
+    //   cout << "\n[COMMENT] " << cmd << endl;
+    //   continue;
+    // }
+    // cout << "\n[CMD] " << cmd << endl;
+    // // create buffer for sql input
+    memset(cmd, 0, buf_size);
+    int i = 0;
+    char ch;
+    ch = cmdIn.get();
+    if (ch == EOF){
+      break;
+    }
+    if (ch == '\0'||ch=='\n') {
       continue;
     }
-    // support comments start with "--"
-    if (cmd[0] == '-') {
+    if (ch == '-'){
+      cmdIn.getline(cmd,buf_size);
       cout << "\n[COMMENT] " << cmd << endl;
       continue;
     }
+    while (ch != ';') {
+      cmd[i++] = ch;
+      ch = cmdIn.get();
+    }
+    cmd[i] = ch;
+    ch = cmdIn.get();
     cout << "\n[CMD] " << cmd << endl;
-    // create buffer for sql input
+
     YY_BUFFER_STATE bp = yy_scan_string(cmd);
     if (bp == nullptr) {
       LOG(ERROR) << "Failed to create yy buffer state." << std::endl;
       exit(1);
     }
+
     yy_switch_to_buffer(bp);
     // init parser module
     MinisqlParserInit();
@@ -1206,7 +1253,6 @@ dberr_t ExecuteEngine::ExecuteExecfile(pSyntaxNode ast, ExecuteContext *context)
     if (context->flag_quit_) {
       break;
     }
-    memset(cmd, 0, buf_size);
   }
   cmdIn.close();
   return DB_SUCCESS;
