@@ -309,11 +309,11 @@ dberr_t CatalogManager::DropIndex(const string &table_name, const string &index_
   if(this->index_names_.at(table_name).count(index_name)==0){
     return DB_INDEX_NOT_FOUND;
   }
+  // delete the index (Destroy)
+  this->indexes_.at(this->index_names_.at(table_name).at(index_name))->GetIndex()->Destroy();
   //get the page store the index
   buffer_pool_manager_->DeletePage( this->catalog_meta_->index_meta_pages_.at(this->index_names_.at(table_name).at(index_name)) );
   this->catalog_meta_->index_meta_pages_.erase(this->index_names_.at(table_name).at(index_name));
-  // delete the index (Destroy)
-  this->indexes_.at(this->index_names_.at(table_name).at(index_name))->GetIndex()->Destroy();
   this->indexes_.erase(this->index_names_.at(table_name).at(index_name));
   this->index_names_.at(table_name).erase(index_name);
   return DB_SUCCESS;
@@ -483,7 +483,7 @@ dberr_t CatalogManager::Delete(TableInfo* &tf, Row &row, Transaction *txn) {
     // error: Delete failed.
     return DB_FAILED;
   }
-  tf->GetTableHeap()->ApplyDelete(row_id, nullptr);
+  // tf->GetTableHeap()->ApplyDelete(row_id, nullptr);
   // 2. maintain indexes
   vector<IndexInfo *> indexes;
   GetTableIndexes(tf->GetTableName(), indexes);

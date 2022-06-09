@@ -5,6 +5,7 @@
 #include <time.h>
 #include <iomanip>
 #include <fstream>
+// #include "utils/tree_file_mgr.h"
 
 using namespace std;
 
@@ -285,6 +286,11 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
                         primaryKeys, nullptr, pkIndexInfo);
   #endif
   assert(pk_ret == DB_SUCCESS);
+  // TreeFileManagers mgr("asdTree_");
+  // auto tree = reinterpret_cast<BPlusTreeIndex<GenericKey<16>,RowId,GenericComparator<16>>*>
+  //                             (pkIndexInfo->GetIndex());
+  // static int treeNum = 0;
+  // tree->container_.PrintTree(mgr[treeNum++]);
   // create index for unique key
   for (auto &uniqueKey : uniqueKeys) {
     IndexInfo *uniqueIndexInfo = nullptr;
@@ -1185,7 +1191,11 @@ dberr_t ExecuteEngine::ExecuteExecfile(pSyntaxNode ast, ExecuteContext *context)
       ch = cmdIn.get();
     }
     cmd[i] = ch;
-    ch = cmdIn.get();
+
+    // ending '\n' and blank
+    char temp[buf_size];
+    cmdIn.getline(temp, buf_size);
+    
     cout << "\n[CMD] " << cmd << endl;
 
     YY_BUFFER_STATE bp = yy_scan_string(cmd);

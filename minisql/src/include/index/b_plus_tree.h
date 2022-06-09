@@ -32,6 +32,9 @@ public:
   explicit BPlusTree(index_id_t index_id, BufferPoolManager *buffer_pool_manager, const KeyComparator &comparator,
                      int leaf_max_size = LEAF_PAGE_SIZE, int internal_max_size = INTERNAL_PAGE_SIZE);
 
+  // new: destroy childs recursively
+  void DestroyChilds(page_id_t node_pid);
+
   // Returns true if this B+ tree has no keys and values.
   bool IsEmpty() const;
 

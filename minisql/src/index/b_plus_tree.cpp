@@ -26,12 +26,30 @@ BPLUSTREE_TYPE::BPlusTree(index_id_t index_id, BufferPoolManager *buffer_pool_ma
 
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::Destroy() {
-  // destroy by removing all keys // todo: not sure
-  while (!IsEmpty())
-  {
-    LeafPage *leftmost_leaf = FindLeafPage(KeyType(), true);
-    Remove(leftmost_leaf->KeyAt(0)); // maybe replace with Begin() later
+  // destroy by traversing the tree
+  DestroyChilds(root_page_id_);
+  root_page_id_ = INVALID_PAGE_ID;
+  UpdateRootPageId();
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+void BPLUSTREE_TYPE::DestroyChilds(page_id_t node_pid) {
+  Page *node_page = buffer_pool_manager_->FetchPage(node_pid);
+  BPlusTreePage *node = reinterpret_cast<BPlusTreePage *>(node_page);
+  // end traversing when the node is a leaf
+  if (node->IsLeafPage()) {
+    buffer_pool_manager_->UnpinPage(node_pid, true);
+    buffer_pool_manager_->DeletePage(node_pid);
+    return;
   }
+  // recursive
+  for (int i = 0; i < node->GetSize(); i++) {
+    InternalPage* inter = reinterpret_cast<InternalPage *>(node);
+    page_id_t child_pid = inter->ValueAt(i);
+    DestroyChilds(child_pid);
+  }
+  buffer_pool_manager_->UnpinPage(node_pid, true);
+  buffer_pool_manager_->DeletePage(node_pid);
 }
 
 /*
@@ -421,7 +439,7 @@ bool BPLUSTREE_TYPE::AdjustRoot(BPlusTreePage *old_root_node) {
 
   assert(old_root_node->GetSize() == 1);
   InternalPage *old_root = static_cast<InternalPage *>(old_root_node);
-  root_page_id_ = old_root->RemoveAndReturnOnlyChild();
+  root_page_id_ = old_root->ValueAt(0);
   UpdateRootPageId();
   Page *new_root_page = GetPageWithPid(root_page_id_);
   BPlusTreePage *new_root = reinterpret_cast<BPlusTreePage *>(new_root_page->GetData()); 
