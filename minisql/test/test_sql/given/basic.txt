@@ -1,0 +1,15 @@
+create database db0;
+create database db1;
+create database db2;
+create database db3;
+create database db4;
+show databases;
+use db0;
+create table account(
+  id int, 
+  name char(16), 
+  balance float, 
+  primary key(id)
+);
+
+-- 调整: name暂时不设定为unique
