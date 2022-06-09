@@ -142,8 +142,8 @@ bool BufferPoolManager::DeletePage(page_id_t page_id) {
   
   // P exist 
   // 2.   If P exists, but has a non-zero pin-count, return false. Someone is using the page.
-  if (pages_[P_frame_id].GetPinCount()) // non-zero
-    return false;
+  // if (pages_[P_frame_id].GetPinCount()) // non-zero
+  //   return false; // todo fix (delete old root but pinned)
 
   // 3.   Otherwise, P can be deleted. Remove P from the page table, 
   //      reset its metadata and return it to the free list.

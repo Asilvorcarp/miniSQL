@@ -112,8 +112,8 @@ public:
   dberr_t GetIndexesForKeyMap(const std::string &table_name, const vector<uint32_t> &key_map, 
                      vector<IndexInfo*> &index_infos) const ;
 
-  // new: is actually unique
-  bool isNotDuplicated(vector<uint32_t> &key_map, vector<Column *> &cols, TableInfo* &table_info);
+  // // new: is actually unique
+  // bool isNotDuplicated(vector<uint32_t> &key_map, vector<Column *> &cols, TableInfo* &table_info);
 
   dberr_t GetTableIndexes(const std::string &table_name, std::vector<IndexInfo *> &indexes) const;
 

@@ -15,7 +15,7 @@ extern int yyparse(void);
 #include "parser/parser.h"
 };
 
-#define ENABLE_EXECUTE_DEBUG // debug
+// #define ENABLE_EXECUTE_DEBUG // debug
 
 ExecuteEngine::ExecuteEngine() {
   ifstream ifs;
