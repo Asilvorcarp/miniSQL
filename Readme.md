@@ -1,6 +1,8 @@
-# database-project-2022
+# MiniSQL
 
 ## 介绍
+
+database-project-2022
 
 2022数据库大程
 
@@ -14,7 +16,7 @@ https://www.yuque.com/yingchengjun/pcp6qx/fggii4
 
 ![gitee](Readme.assets/gitee.jpeg)
 
-# 个人详细设计报告 - 余俊
+# 个人详细设计报告
 
 ## **1. SQL EXECUTOR**
 
